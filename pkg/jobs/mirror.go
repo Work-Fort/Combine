@@ -8,13 +8,13 @@ import (
 	"strings"
 
 	"charm.land/log/v2"
-	"github.com/charmbracelet/soft-serve/git"
-	"github.com/charmbracelet/soft-serve/pkg/backend"
-	"github.com/charmbracelet/soft-serve/pkg/config"
-	"github.com/charmbracelet/soft-serve/pkg/db"
-	"github.com/charmbracelet/soft-serve/pkg/lfs"
-	"github.com/charmbracelet/soft-serve/pkg/store"
-	"github.com/charmbracelet/soft-serve/pkg/sync"
+	"github.com/Work-Fort/Combine/git"
+	"github.com/Work-Fort/Combine/pkg/backend"
+	"github.com/Work-Fort/Combine/pkg/config"
+	"github.com/Work-Fort/Combine/pkg/db"
+	"github.com/Work-Fort/Combine/pkg/lfs"
+	"github.com/Work-Fort/Combine/pkg/store"
+	"github.com/Work-Fort/Combine/pkg/sync"
 )
 
 func init() {

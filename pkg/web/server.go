@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"charm.land/log/v2"
-	"github.com/charmbracelet/soft-serve/pkg/config"
+	"github.com/Work-Fort/Combine/pkg/config"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 )

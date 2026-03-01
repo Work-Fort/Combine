@@ -6,11 +6,11 @@ import (
 	"os"
 	"sync"
 
-	"github.com/charmbracelet/soft-serve/git"
-	"github.com/charmbracelet/soft-serve/pkg/hooks"
-	"github.com/charmbracelet/soft-serve/pkg/proto"
-	"github.com/charmbracelet/soft-serve/pkg/sshutils"
-	"github.com/charmbracelet/soft-serve/pkg/webhook"
+	"github.com/Work-Fort/Combine/git"
+	"github.com/Work-Fort/Combine/pkg/hooks"
+	"github.com/Work-Fort/Combine/pkg/proto"
+	"github.com/Work-Fort/Combine/pkg/sshutils"
+	"github.com/Work-Fort/Combine/pkg/webhook"
 )
 
 var _ hooks.Hooks = (*Backend)(nil)

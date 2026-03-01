@@ -9,15 +9,14 @@ import (
 
 	"charm.land/log/v2"
 
-	"github.com/charmbracelet/soft-serve/pkg/backend"
-	"github.com/charmbracelet/soft-serve/pkg/config"
-	"github.com/charmbracelet/soft-serve/pkg/cron"
-	"github.com/charmbracelet/soft-serve/pkg/daemon"
-	"github.com/charmbracelet/soft-serve/pkg/db"
-	"github.com/charmbracelet/soft-serve/pkg/jobs"
-	sshsrv "github.com/charmbracelet/soft-serve/pkg/ssh"
-	"github.com/charmbracelet/soft-serve/pkg/stats"
-	"github.com/charmbracelet/soft-serve/pkg/web"
+	"github.com/Work-Fort/Combine/pkg/backend"
+	"github.com/Work-Fort/Combine/pkg/config"
+	"github.com/Work-Fort/Combine/pkg/cron"
+	"github.com/Work-Fort/Combine/pkg/db"
+	"github.com/Work-Fort/Combine/pkg/jobs"
+	sshsrv "github.com/Work-Fort/Combine/pkg/ssh"
+	"github.com/Work-Fort/Combine/pkg/stats"
+	"github.com/Work-Fort/Combine/pkg/web"
 	"github.com/charmbracelet/ssh"
 	"golang.org/x/sync/errgroup"
 )
@@ -25,7 +24,6 @@ import (
 // Server is the Soft Serve server.
 type Server struct {
 	SSHServer   *sshsrv.SSHServer
-	GitDaemon   *daemon.GitDaemon
 	HTTPServer  *web.HTTPServer
 	StatsServer *stats.StatsServer
 	CertLoader  *CertReloader
@@ -72,11 +70,6 @@ func NewServer(ctx context.Context) (*Server, error) {
 	srv.SSHServer, err = sshsrv.NewSSHServer(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("create ssh server: %w", err)
-	}
-
-	srv.GitDaemon, err = daemon.NewGitDaemon(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("create git daemon: %w", err)
 	}
 
 	srv.HTTPServer, err = web.NewHTTPServer(ctx)
@@ -126,17 +119,6 @@ func (s *Server) Start() error {
 		})
 	}
 
-	// optionally start the git daemon
-	if s.Config.Git.Enabled {
-		errg.Go(func() error {
-			s.logger.Print("Starting Git daemon", "addr", s.Config.Git.ListenAddr)
-			if err := s.GitDaemon.ListenAndServe(); !errors.Is(err, daemon.ErrServerClosed) {
-				return err
-			}
-			return nil
-		})
-	}
-
 	// optionally start the HTTP server
 	if s.Config.HTTP.Enabled {
 		errg.Go(func() error {
@@ -170,9 +152,6 @@ func (s *Server) Start() error {
 func (s *Server) Shutdown(ctx context.Context) error {
 	errg, ctx := errgroup.WithContext(ctx)
 	errg.Go(func() error {
-		return s.GitDaemon.Shutdown(ctx)
-	})
-	errg.Go(func() error {
 		return s.HTTPServer.Shutdown(ctx)
 	})
 	errg.Go(func() error {
@@ -195,7 +174,6 @@ func (s *Server) Shutdown(ctx context.Context) error {
 // Close closes the SSH server.
 func (s *Server) Close() error {
 	var errg errgroup.Group
-	errg.Go(s.GitDaemon.Close)
 	errg.Go(s.HTTPServer.Close)
 	errg.Go(s.SSHServer.Close)
 	errg.Go(s.StatsServer.Close)

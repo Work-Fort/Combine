@@ -18,9 +18,6 @@ EXPOSE 23231/tcp
 EXPOSE 23232/tcp
 # Stats
 EXPOSE 23233/tcp
-# Git
-EXPOSE 9418/tcp
-
 # Set the default command
 ENTRYPOINT [ "/usr/local/bin/soft", "serve" ]
 

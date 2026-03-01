@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/charmbracelet/soft-serve/pkg/db"
-	"github.com/charmbracelet/soft-serve/pkg/db/internal/test"
+	"github.com/Work-Fort/Combine/pkg/db"
+	"github.com/Work-Fort/Combine/pkg/db/internal/test"
 )
 
 func TestBadFromContext(t *testing.T) {

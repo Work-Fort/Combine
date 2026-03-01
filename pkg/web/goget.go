@@ -7,9 +7,9 @@ import (
 	"text/template"
 
 	"charm.land/log/v2"
-	"github.com/charmbracelet/soft-serve/pkg/backend"
-	"github.com/charmbracelet/soft-serve/pkg/config"
-	"github.com/charmbracelet/soft-serve/pkg/utils"
+	"github.com/Work-Fort/Combine/pkg/backend"
+	"github.com/Work-Fort/Combine/pkg/config"
+	"github.com/Work-Fort/Combine/pkg/utils"
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"

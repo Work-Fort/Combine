@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/charmbracelet/soft-serve/pkg/db/models"
+	"github.com/Work-Fort/Combine/pkg/db/models"
 )
 
 // TestSSRFProtection tests that the webhook system blocks SSRF attempts.

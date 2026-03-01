@@ -5,9 +5,9 @@ import (
 	"errors"
 	"time"
 
-	"github.com/charmbracelet/soft-serve/pkg/db"
-	"github.com/charmbracelet/soft-serve/pkg/proto"
-	"github.com/charmbracelet/soft-serve/pkg/utils"
+	"github.com/Work-Fort/Combine/pkg/db"
+	"github.com/Work-Fort/Combine/pkg/proto"
+	"github.com/Work-Fort/Combine/pkg/utils"
 )
 
 // CreateAccessToken creates an access token for user.

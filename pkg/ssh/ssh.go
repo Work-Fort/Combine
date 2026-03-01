@@ -10,13 +10,12 @@ import (
 
 	"charm.land/log/v2"
 	"charm.land/wish/v2"
-	bm "charm.land/wish/v2/bubbletea"
 	rm "charm.land/wish/v2/recover"
 	"github.com/charmbracelet/keygen"
-	"github.com/charmbracelet/soft-serve/pkg/backend"
-	"github.com/charmbracelet/soft-serve/pkg/config"
-	"github.com/charmbracelet/soft-serve/pkg/db"
-	"github.com/charmbracelet/soft-serve/pkg/store"
+	"github.com/Work-Fort/Combine/pkg/backend"
+	"github.com/Work-Fort/Combine/pkg/config"
+	"github.com/Work-Fort/Combine/pkg/db"
+	"github.com/Work-Fort/Combine/pkg/store"
 	"github.com/charmbracelet/ssh"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -67,8 +66,6 @@ func NewSSHServer(ctx context.Context) (*SSHServer, error) {
 	mw := []wish.Middleware{
 		rm.MiddlewareWithLogger(
 			logger,
-			// BubbleTea middleware.
-			bm.MiddlewareWithProgramHandler(SessionHandler),
 			// CLI middleware.
 			CommandMiddleware,
 			// Logging middleware.

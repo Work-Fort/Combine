@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/charmbracelet/soft-serve/pkg/config"
+	"github.com/Work-Fort/Combine/pkg/config"
 )
 
 func TestGoodNewLogger(t *testing.T) {

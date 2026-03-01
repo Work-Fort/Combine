@@ -7,13 +7,13 @@ import (
 
 	"charm.land/log/v2"
 	"charm.land/wish/v2"
-	"github.com/charmbracelet/soft-serve/pkg/backend"
-	"github.com/charmbracelet/soft-serve/pkg/config"
-	"github.com/charmbracelet/soft-serve/pkg/db"
-	"github.com/charmbracelet/soft-serve/pkg/proto"
-	"github.com/charmbracelet/soft-serve/pkg/ssh/cmd"
-	"github.com/charmbracelet/soft-serve/pkg/sshutils"
-	"github.com/charmbracelet/soft-serve/pkg/store"
+	"github.com/Work-Fort/Combine/pkg/backend"
+	"github.com/Work-Fort/Combine/pkg/config"
+	"github.com/Work-Fort/Combine/pkg/db"
+	"github.com/Work-Fort/Combine/pkg/proto"
+	"github.com/Work-Fort/Combine/pkg/ssh/cmd"
+	"github.com/Work-Fort/Combine/pkg/sshutils"
+	"github.com/Work-Fort/Combine/pkg/store"
 	"github.com/charmbracelet/ssh"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -102,7 +102,8 @@ func CommandMiddleware(sh ssh.Handler) ssh.Handler {
 	return func(s ssh.Session) {
 		_, _, ptyReq := s.Pty()
 		if ptyReq {
-			sh(s)
+			fmt.Fprintln(s, "Interactive sessions are not supported. Use SSH commands instead.")
+			fmt.Fprintln(s, "Example: ssh <host> -p <port> help")
 			return
 		}
 
@@ -123,14 +124,6 @@ func CommandMiddleware(sh ssh.Handler) ssh.Handler {
 			cmd.GitUploadPackCommand(),
 			cmd.GitUploadArchiveCommand(),
 			cmd.GitReceivePackCommand(),
-			cmd.RepoCommand(),
-			cmd.SettingsCommand(),
-			cmd.UserCommand(),
-			cmd.InfoCommand(),
-			cmd.PubkeyCommand(),
-			cmd.SetUsernameCommand(),
-			cmd.JWTCommand(),
-			cmd.TokenCommand(),
 		)
 
 		if cfg.LFS.Enabled {

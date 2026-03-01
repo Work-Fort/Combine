@@ -7,12 +7,12 @@ import (
 	"text/template"
 	"unicode"
 
-	"github.com/charmbracelet/soft-serve/pkg/access"
-	"github.com/charmbracelet/soft-serve/pkg/backend"
-	"github.com/charmbracelet/soft-serve/pkg/config"
-	"github.com/charmbracelet/soft-serve/pkg/proto"
-	"github.com/charmbracelet/soft-serve/pkg/sshutils"
-	"github.com/charmbracelet/soft-serve/pkg/utils"
+	"github.com/Work-Fort/Combine/pkg/access"
+	"github.com/Work-Fort/Combine/pkg/backend"
+	"github.com/Work-Fort/Combine/pkg/config"
+	"github.com/Work-Fort/Combine/pkg/proto"
+	"github.com/Work-Fort/Combine/pkg/sshutils"
+	"github.com/Work-Fort/Combine/pkg/utils"
 	"github.com/charmbracelet/ssh"
 	"github.com/spf13/cobra"
 )

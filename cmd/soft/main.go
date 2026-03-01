@@ -5,18 +5,14 @@ import (
 	"fmt"
 	"os"
 	"runtime/debug"
-	"strconv"
 
 	"charm.land/log/v2"
-	"github.com/charmbracelet/colorprofile"
-	"github.com/charmbracelet/soft-serve/cmd/soft/admin"
-	"github.com/charmbracelet/soft-serve/cmd/soft/browse"
-	"github.com/charmbracelet/soft-serve/cmd/soft/hook"
-	"github.com/charmbracelet/soft-serve/cmd/soft/serve"
-	"github.com/charmbracelet/soft-serve/pkg/config"
-	logr "github.com/charmbracelet/soft-serve/pkg/log"
-	"github.com/charmbracelet/soft-serve/pkg/ui/common"
-	"github.com/charmbracelet/soft-serve/pkg/version"
+	"github.com/Work-Fort/Combine/cmd/soft/admin"
+	"github.com/Work-Fort/Combine/cmd/soft/hook"
+	"github.com/Work-Fort/Combine/cmd/soft/serve"
+	"github.com/Work-Fort/Combine/pkg/config"
+	logr "github.com/Work-Fort/Combine/pkg/log"
+	"github.com/Work-Fort/Combine/pkg/version"
 	mcobra "github.com/muesli/mango-cobra"
 	"github.com/muesli/roff"
 	"github.com/spf13/cobra"
@@ -41,8 +37,8 @@ var (
 		Short:        "A self-hostable Git server for the command line",
 		Long:         "Soft Serve is a self-hostable Git server for the command line.",
 		SilenceUsage: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return browse.Command.RunE(cmd, args)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return cmd.Help()
 		},
 	}
 
@@ -66,16 +62,11 @@ var (
 )
 
 func init() {
-	if noColor, _ := strconv.ParseBool(os.Getenv("SOFT_SERVE_NO_COLOR")); noColor {
-		common.DefaultColorProfile = colorprofile.NoTTY
-	}
-
 	rootCmd.AddCommand(
 		manCmd,
 		serve.Command,
 		hook.Command,
 		admin.Command,
-		browse.Command,
 	)
 	rootCmd.CompletionOptions.HiddenDefaultCmd = true
 

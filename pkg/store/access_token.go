@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/charmbracelet/soft-serve/pkg/db"
-	"github.com/charmbracelet/soft-serve/pkg/db/models"
+	"github.com/Work-Fort/Combine/pkg/db"
+	"github.com/Work-Fort/Combine/pkg/db/models"
 )
 
 // AccessTokenStore is an interface for managing access tokens.

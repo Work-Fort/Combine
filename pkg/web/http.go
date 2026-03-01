@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"charm.land/log/v2"
-	"github.com/charmbracelet/soft-serve/pkg/config"
+	"github.com/Work-Fort/Combine/pkg/config"
 )
 
 // HTTPServer is an http server.

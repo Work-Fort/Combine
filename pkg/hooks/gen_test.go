@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/charmbracelet/soft-serve/git"
-	"github.com/charmbracelet/soft-serve/pkg/config"
+	"github.com/Work-Fort/Combine/git"
+	"github.com/Work-Fort/Combine/pkg/config"
 )
 
 func TestGenerateHooks(t *testing.T) {

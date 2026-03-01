@@ -3,8 +3,8 @@ package store
 import (
 	"context"
 
-	"github.com/charmbracelet/soft-serve/pkg/access"
-	"github.com/charmbracelet/soft-serve/pkg/db"
+	"github.com/Work-Fort/Combine/pkg/access"
+	"github.com/Work-Fort/Combine/pkg/db"
 )
 
 // SettingStore is an interface for managing settings.

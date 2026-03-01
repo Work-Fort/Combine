@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	"charm.land/log/v2"
-	"github.com/charmbracelet/soft-serve/pkg/backend"
-	"github.com/charmbracelet/soft-serve/pkg/config"
-	"github.com/charmbracelet/soft-serve/pkg/proto"
+	"github.com/Work-Fort/Combine/pkg/backend"
+	"github.com/Work-Fort/Combine/pkg/config"
+	"github.com/Work-Fort/Combine/pkg/proto"
 	"github.com/golang-jwt/jwt/v5"
 )
 

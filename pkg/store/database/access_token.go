@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/charmbracelet/soft-serve/pkg/db"
-	"github.com/charmbracelet/soft-serve/pkg/db/models"
-	"github.com/charmbracelet/soft-serve/pkg/store"
+	"github.com/Work-Fort/Combine/pkg/db"
+	"github.com/Work-Fort/Combine/pkg/db/models"
+	"github.com/Work-Fort/Combine/pkg/store"
 )
 
 type accessTokenStore struct{}

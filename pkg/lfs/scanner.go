@@ -11,7 +11,7 @@ import (
 	"sync"
 
 	gitm "github.com/aymanbagabas/git-module"
-	"github.com/charmbracelet/soft-serve/git"
+	"github.com/Work-Fort/Combine/git"
 )
 
 // SearchPointerBlobs scans the whole repository for LFS pointer files

@@ -3,8 +3,8 @@ package backend
 import (
 	"context"
 
-	"github.com/charmbracelet/soft-serve/pkg/access"
-	"github.com/charmbracelet/soft-serve/pkg/db"
+	"github.com/Work-Fort/Combine/pkg/access"
+	"github.com/Work-Fort/Combine/pkg/db"
 )
 
 // AllowKeyless returns whether or not keyless access is allowed.
