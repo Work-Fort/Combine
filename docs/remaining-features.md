@@ -24,7 +24,7 @@ unauthorized access, and LFS.
 Strip the git:// daemon (port 9418). Legacy read-only unauthenticated protocol
 not needed for Combine's target use cases.
 
-## 4. Hexagonal Architecture Migration
+## 4. Hexagonal Architecture Migration ✅
 
 [Design](2026-04-03-hexagonal-architecture-design.md) · [Plan](plans/2026-04-03-hexagonal-architecture-plan.md)
 
@@ -33,6 +33,9 @@ Migrate from Soft Serve's `pkg/` flat layout to `internal/domain/` +
 Domain types as plain structs, port interfaces without leaked transaction
 handles, adapter-managed persistence, Viper + XDG config, Goose migrations,
 raw `database/sql` with modernc.org/sqlite and pgx/v5.
+
+Note: `internal/legacy/config/` retains the old YAML+env config system.
+Full Viper migration is a follow-up task.
 
 ## 5. Issue Tracker
 
