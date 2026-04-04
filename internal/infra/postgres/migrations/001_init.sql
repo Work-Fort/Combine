@@ -1,0 +1,176 @@
+-- +goose Up
+
+CREATE TABLE IF NOT EXISTS settings (
+  id SERIAL PRIMARY KEY,
+  key TEXT NOT NULL UNIQUE,
+  value TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+INSERT INTO settings (key, value) VALUES ('allow_keyless', 'true') ON CONFLICT DO NOTHING;
+INSERT INTO settings (key, value) VALUES ('anon_access', 'read-only') ON CONFLICT DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS users (
+  id SERIAL PRIMARY KEY,
+  username TEXT NOT NULL UNIQUE,
+  admin BOOLEAN NOT NULL DEFAULT FALSE,
+  password TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public_keys (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  public_key TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT user_id_fk
+  FOREIGN KEY(user_id) REFERENCES users(id)
+  ON DELETE CASCADE
+  ON UPDATE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS repos (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  project_name TEXT NOT NULL DEFAULT '',
+  description TEXT NOT NULL DEFAULT '',
+  private BOOLEAN NOT NULL DEFAULT FALSE,
+  mirror BOOLEAN NOT NULL DEFAULT FALSE,
+  hidden BOOLEAN NOT NULL DEFAULT FALSE,
+  user_id INTEGER,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT user_id_fk
+  FOREIGN KEY(user_id) REFERENCES users(id)
+  ON DELETE CASCADE
+  ON UPDATE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS collabs (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  repo_id INTEGER NOT NULL,
+  access_level INTEGER NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (user_id, repo_id),
+  CONSTRAINT user_id_fk
+  FOREIGN KEY(user_id) REFERENCES users(id)
+  ON DELETE CASCADE
+  ON UPDATE CASCADE,
+  CONSTRAINT repo_id_fk
+  FOREIGN KEY(repo_id) REFERENCES repos(id)
+  ON DELETE CASCADE
+  ON UPDATE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS lfs_objects (
+  id SERIAL PRIMARY KEY,
+  oid TEXT NOT NULL,
+  size BIGINT NOT NULL,
+  repo_id INTEGER NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (oid, repo_id),
+  CONSTRAINT repo_id_fk
+  FOREIGN KEY(repo_id) REFERENCES repos(id)
+  ON DELETE CASCADE
+  ON UPDATE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS lfs_locks (
+  id SERIAL PRIMARY KEY,
+  repo_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  path TEXT NOT NULL,
+  refname TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (repo_id, path),
+  CONSTRAINT repo_id_fk
+  FOREIGN KEY(repo_id) REFERENCES repos(id)
+  ON DELETE CASCADE
+  ON UPDATE CASCADE,
+  CONSTRAINT user_id_fk
+  FOREIGN KEY(user_id) REFERENCES users(id)
+  ON DELETE CASCADE
+  ON UPDATE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS access_tokens (
+  id SERIAL PRIMARY KEY,
+  token TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  user_id INTEGER NOT NULL,
+  expires_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT user_id_fk
+  FOREIGN KEY(user_id) REFERENCES users(id)
+  ON DELETE CASCADE
+  ON UPDATE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS webhooks (
+  id SERIAL PRIMARY KEY,
+  repo_id INTEGER NOT NULL,
+  url TEXT NOT NULL,
+  secret TEXT NOT NULL,
+  content_type INTEGER NOT NULL,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (repo_id, url),
+  CONSTRAINT repo_id_fk
+  FOREIGN KEY(repo_id) REFERENCES repos(id)
+  ON DELETE CASCADE
+  ON UPDATE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS webhook_events (
+  id SERIAL PRIMARY KEY,
+  webhook_id INTEGER NOT NULL,
+  event INTEGER NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (webhook_id, event),
+  CONSTRAINT webhook_id_fk
+  FOREIGN KEY(webhook_id) REFERENCES webhooks(id)
+  ON DELETE CASCADE
+  ON UPDATE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS webhook_deliveries (
+  id TEXT PRIMARY KEY,
+  webhook_id INTEGER NOT NULL,
+  event INTEGER NOT NULL,
+  request_url TEXT NOT NULL,
+  request_method TEXT NOT NULL,
+  request_error TEXT,
+  request_headers TEXT NOT NULL,
+  request_body TEXT NOT NULL,
+  response_status INTEGER NOT NULL,
+  response_headers TEXT NOT NULL,
+  response_body TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT webhook_id_fk
+  FOREIGN KEY(webhook_id) REFERENCES webhooks(id)
+  ON DELETE CASCADE
+  ON UPDATE CASCADE
+);
+
+-- +goose Down
+
+DROP TABLE IF EXISTS webhook_deliveries;
+DROP TABLE IF EXISTS webhook_events;
+DROP TABLE IF EXISTS webhooks;
+DROP TABLE IF EXISTS access_tokens;
+DROP TABLE IF EXISTS lfs_locks;
+DROP TABLE IF EXISTS lfs_objects;
+DROP TABLE IF EXISTS collabs;
+DROP TABLE IF EXISTS repos;
+DROP TABLE IF EXISTS public_keys;
+DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS settings;
