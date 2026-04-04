@@ -428,6 +428,13 @@ type Store interface {
     // Transaction executes fn within a database transaction.
     // The Store passed to fn uses the same underlying transaction for all
     // method calls, providing atomicity for multi-step operations.
+    //
+    // NOTE: This is a Combine-specific deviation from the Nexus/Hive convention,
+    // where neither service exposes Transaction on their Store interface. Combine
+    // needs this because Backend performs cross-store atomic operations (e.g.,
+    // DeleteRepository deletes the repo record + LFS objects in one transaction).
+    // Nexus and Hive handle transactions entirely within the adapter layer because
+    // their operations don't span multiple store sub-interfaces.
     Transaction(ctx context.Context, fn func(tx Store) error) error
 
     Ping(ctx context.Context) error
@@ -726,6 +733,25 @@ The migration must create all tables: repos, users, public_keys, collabs,
 settings, access_tokens, lfs_objects, lfs_locks, webhooks, webhook_events,
 webhook_deliveries.
 
+**Migration compatibility:** Existing databases use a custom `migrations` table
+(not Goose). The `Open()` function must check for the old `migrations` table
+and, if present, seed Goose's `goose_db_version` table to mark `001_init.sql`
+as already applied. This prevents re-running the init migration on existing
+deployments. Pattern:
+```go
+// Check if this is an existing database with old migration system
+var oldMigrationExists bool
+err := db.QueryRow("SELECT 1 FROM sqlite_master WHERE type='table' AND name='migrations'").Scan(&oldMigrationExists)
+if err == nil && oldMigrationExists {
+    // Seed Goose version table so it skips 001_init.sql
+    goose.SetBaseFS(embedMigrations)
+    goose.SetDialect("sqlite3")
+    // Insert version record for migration 1
+    db.Exec("CREATE TABLE IF NOT EXISTS goose_db_version (id INTEGER PRIMARY KEY AUTOINCREMENT, version_id INTEGER NOT NULL, is_applied INTEGER NOT NULL, tstamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+    db.Exec("INSERT INTO goose_db_version (version_id, is_applied) VALUES (1, 1)")
+}
+```
+
 **Step 2: Write store.go**
 
 ```go
@@ -872,6 +898,13 @@ Port queries from `pkg/store/database/repo.go`, but:
 Both `Store` and `txStore` need to implement these methods. Use a shared
 helper type or duplicate — the agent implementing this should read the existing
 query implementations in `pkg/store/database/repo.go` and port them.
+
+**Null handling notes:** Some domain struct fields use Go native types where the
+database columns are nullable:
+- `domain.Repo.UserID` is `*int64`, database is `user_id INTEGER` (nullable) — use `sql.NullInt64` for Scan, convert
+- `domain.User.Password` is `string`, database is `password TEXT` (nullable via `sql.NullString`) — scan into `sql.NullString`, convert to empty string if null
+- `domain.AccessToken.ExpiresAt` is `*time.Time`, database is `expires_at` (nullable) — use `sql.NullTime` for Scan
+- `domain.WebhookDelivery.RequestError` is `*string`, database is `request_error` (nullable) — use `sql.NullString` for Scan
 
 **Step 2: Write a basic test**
 
@@ -1033,6 +1066,7 @@ mkdir -p internal/infra
 git mv pkg/web internal/infra/httpapi
 git mv pkg/ssh internal/infra/ssh
 git mv git internal/infra/git
+git mv pkg/git internal/infra/gitutil
 git mv pkg/webhook internal/infra/webhook
 git mv pkg/lfs internal/infra/lfs
 git mv pkg/hooks internal/infra/hooks
@@ -1042,7 +1076,18 @@ git mv pkg/stats internal/infra/stats
 git mv pkg/cron internal/infra/cron
 git mv pkg/sync internal/infra/sync
 git mv pkg/utils internal/infra/utils
+git mv pkg/task internal/infra/task
+git mv pkg/jobs internal/infra/jobs
+git mv pkg/jwk internal/infra/jwk
+git mv pkg/log internal/infra/log
+git mv pkg/version internal/infra/version
+git mv pkg/test internal/infra/testutil
 ```
+
+Note: `pkg/git/` (LFS auth, git service code) is distinct from top-level `git/`
+(low-level git operations). Both are moved but to different targets:
+- `git/` -> `internal/infra/git/`
+- `pkg/git/` -> `internal/infra/gitutil/`
 
 **Step 2: Update all import paths**
 
@@ -1050,6 +1095,7 @@ Find and replace across the entire codebase:
 - `github.com/Work-Fort/Combine/pkg/web` -> `github.com/Work-Fort/Combine/internal/infra/httpapi`
 - `github.com/Work-Fort/Combine/pkg/ssh` -> `github.com/Work-Fort/Combine/internal/infra/ssh`
 - `github.com/Work-Fort/Combine/git` -> `github.com/Work-Fort/Combine/internal/infra/git`
+- `github.com/Work-Fort/Combine/pkg/git` -> `github.com/Work-Fort/Combine/internal/infra/gitutil`
 - `github.com/Work-Fort/Combine/pkg/webhook` -> `github.com/Work-Fort/Combine/internal/infra/webhook`
 - `github.com/Work-Fort/Combine/pkg/lfs` -> `github.com/Work-Fort/Combine/internal/infra/lfs`
 - `github.com/Work-Fort/Combine/pkg/hooks` -> `github.com/Work-Fort/Combine/internal/infra/hooks`
@@ -1059,6 +1105,12 @@ Find and replace across the entire codebase:
 - `github.com/Work-Fort/Combine/pkg/cron` -> `github.com/Work-Fort/Combine/internal/infra/cron`
 - `github.com/Work-Fort/Combine/pkg/sync` -> `github.com/Work-Fort/Combine/internal/infra/sync`
 - `github.com/Work-Fort/Combine/pkg/utils` -> `github.com/Work-Fort/Combine/internal/infra/utils`
+- `github.com/Work-Fort/Combine/pkg/task` -> `github.com/Work-Fort/Combine/internal/infra/task`
+- `github.com/Work-Fort/Combine/pkg/jobs` -> `github.com/Work-Fort/Combine/internal/infra/jobs`
+- `github.com/Work-Fort/Combine/pkg/jwk` -> `github.com/Work-Fort/Combine/internal/infra/jwk`
+- `github.com/Work-Fort/Combine/pkg/log` -> `github.com/Work-Fort/Combine/internal/infra/log`
+- `github.com/Work-Fort/Combine/pkg/version` -> `github.com/Work-Fort/Combine/internal/infra/version`
+- `github.com/Work-Fort/Combine/pkg/test` -> `github.com/Work-Fort/Combine/internal/infra/testutil`
 
 **Step 3: Verify**
 
@@ -1125,20 +1177,30 @@ This is the core refactor. The Backend struct changes to depend only on
 
 **Key changes:**
 
-1. Backend struct drops `*db.DB` and `*config.Config`:
+1. Backend struct drops `*db.DB` and `*config.Config`, but retains the
+   specific config values it actually uses (identified by feasibility assessment):
    ```go
+   // BackendConfig holds the specific config values Backend needs.
+   // This avoids importing the full config package into the app layer.
+   type BackendConfig struct {
+       RepoDir         string           // filepath.Join(dataDir, "repos")
+       DataDir         string           // base data directory
+       AdminKeys       []ssh.PublicKey   // initial admin public keys
+       SSHClientKeyPath string          // for git clone over SSH (ImportRepository)
+       SSHKnownHostsPath string         // for git clone over SSH (ImportRepository)
+   }
+
    type Backend struct {
        store   domain.Store
-       repoDir string
-       dataDir string
+       cfg     BackendConfig
        logger  *log.Logger
        cache   *cache
    }
    ```
 
-2. Constructor takes specific values:
+2. Constructor takes the config struct:
    ```go
-   func New(store domain.Store, repoDir, dataDir string, logger *log.Logger) *Backend
+   func New(store domain.Store, cfg BackendConfig, logger *log.Logger) *Backend
    ```
 
 3. All methods replace `d.db.TransactionContext(ctx, func(tx *db.Tx)` with
@@ -1170,6 +1232,20 @@ This is the core refactor. The Backend struct changes to depend only on
    }
    ```
 
+7. Refactor `StoreRepoMissingLFSObjects`: This is currently a package-level
+   function in `pkg/backend/lfs.go` with signature:
+   ```go
+   func StoreRepoMissingLFSObjects(ctx context.Context, repo proto.Repository, dbx *db.DB, store store.Store, lfsClient lfs.Client) error
+   ```
+   It directly takes `*db.DB` and `store.Store` and calls `dbx.TransactionContext`.
+   It is called from `ImportRepository` (repo.go) and `pkg/jobs/mirror.go`.
+   Refactor it to a Backend method that uses `domain.Store.Transaction`:
+   ```go
+   func (d *Backend) StoreRepoMissingLFSObjects(ctx context.Context, repoName string, lfsClient lfs.Client) error
+   ```
+   The `pkg/jobs/mirror.go` call site will need to receive Backend and call the
+   method instead of the package-level function.
+
 **This task requires reading every file in internal/app/ and making targeted
 changes.** The implementing agent should work through one file at a time,
 starting with backend.go, then repo.go, then user.go, etc.
@@ -1180,7 +1256,8 @@ starting with backend.go, then repo.go, then user.go, etc.
 **Step 4: Refactor collab.go**
 **Step 5: Refactor auth.go**
 **Step 6: Refactor hooks.go**
-**Step 7: Refactor remaining files**
+**Step 7: Refactor lfs.go** (StoreRepoMissingLFSObjects → Backend method)
+**Step 8: Refactor remaining files**
 **Step 8: Verify it compiles** (may still fail due to adapter references)
 
 ```bash
@@ -1248,10 +1325,21 @@ git commit -m "refactor: SSH adapter uses domain types"
 **Files:**
 - Modify: `internal/infra/webhook/` — use domain types
 - Modify: `internal/infra/lfs/` — use domain types
-- Modify: `internal/infra/hooks/` — use domain types
+- Modify: `internal/infra/hooks/` — use domain types (also takes `*config.Config`, needs specific values instead)
+- Modify: `internal/infra/gitutil/` — use domain types (depends on config, db, models, proto, store, lfs, storage, jwk)
+- Modify: `internal/infra/jobs/` — use domain types (depends on backend, db, store, config; mirror.go calls StoreRepoMissingLFSObjects)
+- Modify: `internal/infra/task/` — if it references old types
 
 These packages reference `proto.*`, `store.*`, `db.*`, and `config.*` types.
 Update them to use `domain.*` types and the new config approach.
+
+Key concerns:
+- `internal/infra/gitutil/` has heavy deps on the old type system — this is
+  the most complex package to update after Backend itself
+- `internal/infra/jobs/mirror.go` calls the old `StoreRepoMissingLFSObjects`
+  package-level function — update to call Backend method instead
+- `internal/infra/hooks/gen.go` takes `*config.Config` — pass specific values
+  (binary path, data path) instead of the full config struct
 
 **Step 1: Update each package**
 **Step 2: Verify full build**
@@ -1294,7 +1382,14 @@ func run(...) error {
     store, err := infra.Open(dsn)
     defer store.Close()
 
-    be := app.New(store, repoDir, dataDir, logger)
+    beCfg := app.BackendConfig{
+        RepoDir:           filepath.Join(dataDir, "repos"),
+        DataDir:           dataDir,
+        AdminKeys:         adminKeys,
+        SSHClientKeyPath:  viper.GetString("ssh.client-key-path"),
+        SSHKnownHostsPath: filepath.Join(dataDir, "ssh", "known_hosts"),
+    }
+    be := app.New(store, beCfg, logger)
 
     // Start SSH + HTTP servers
     // Graceful shutdown
