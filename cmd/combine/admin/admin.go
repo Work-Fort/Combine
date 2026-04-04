@@ -5,7 +5,7 @@ import (
 
 	"github.com/Work-Fort/Combine/cmd"
 	"github.com/Work-Fort/Combine/internal/app/backend"
-	"github.com/Work-Fort/Combine/internal/legacy/config"
+	"github.com/Work-Fort/Combine/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -20,7 +20,7 @@ var (
 		Use:                "migrate",
 		Short:              "Migrate the database to the latest version",
 		Long:               "Migrations are now applied automatically when the server starts. This command ensures the store is opened (which triggers Goose migrations) and then exits.",
-		PersistentPreRunE:  cmd.InitBackendContext,
+		PersistentPreRunE:  cmd.ChainedInitBackendContext,
 		PersistentPostRunE: cmd.CloseStoreContext,
 		RunE: func(c *cobra.Command, _ []string) error {
 			// Goose migrations run automatically in infra.Open(), which is
@@ -33,7 +33,7 @@ var (
 	syncHooksCmd = &cobra.Command{
 		Use:                "sync-hooks",
 		Short:              "Update repository hooks",
-		PersistentPreRunE:  cmd.InitBackendContext,
+		PersistentPreRunE:  cmd.ChainedInitBackendContext,
 		PersistentPostRunE: cmd.CloseStoreContext,
 		RunE: func(c *cobra.Command, _ []string) error {
 			ctx := c.Context()

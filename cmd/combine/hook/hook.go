@@ -15,7 +15,7 @@ import (
 	"charm.land/log/v2"
 	"github.com/Work-Fort/Combine/cmd"
 	"github.com/Work-Fort/Combine/internal/app/backend"
-	"github.com/Work-Fort/Combine/internal/legacy/config"
+	"github.com/Work-Fort/Combine/internal/config"
 	"github.com/Work-Fort/Combine/internal/infra/hooks"
 	"github.com/spf13/cobra"
 )
@@ -34,9 +34,11 @@ var (
 		Long:   "Handles Combine git server hooks.",
 		Hidden: true,
 		PersistentPreRunE: func(c *cobra.Command, args []string) error {
-			logger := log.FromContext(c.Context())
-			if err := cmd.InitBackendContext(c, args); err != nil {
-				logger.Error("failed to initialize backend context", "err", err)
+			if err := cmd.ChainedInitBackendContext(c, args); err != nil {
+				logger := log.FromContext(c.Context())
+				if logger != nil {
+					logger.Error("failed to initialize backend context", "err", err)
+				}
 				return ErrInternalServerError
 			}
 

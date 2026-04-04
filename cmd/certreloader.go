@@ -1,4 +1,4 @@
-package serve
+package cmd
 
 import (
 	"crypto/tls"

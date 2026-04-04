@@ -6,7 +6,6 @@ require (
 	charm.land/log/v2 v2.0.0-20251110204020-529bb77f35da
 	charm.land/wish/v2 v2.0.0-20251118130305-6cd7463a7b97
 	github.com/aymanbagabas/git-module v1.8.4-0.20250826192401-1f81c5471e53
-	github.com/caarlos0/env/v11 v11.3.1
 	github.com/charmbracelet/git-lfs-transfer v0.1.1-0.20240708204110-bacbfdb68d92
 	github.com/charmbracelet/keygen v0.5.4
 	github.com/charmbracelet/ssh v0.0.0-20250826160808-ebfa259c7309
@@ -35,7 +34,6 @@ require (
 	go.uber.org/automaxprocs v1.6.0
 	golang.org/x/crypto v0.48.0
 	golang.org/x/sync v0.19.0
-	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.46.1
 )
 

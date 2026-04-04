@@ -18,7 +18,7 @@ import (
 	gitb "github.com/Work-Fort/Combine/internal/infra/git"
 	"github.com/Work-Fort/Combine/internal/app/backend"
 	"github.com/Work-Fort/Combine/internal/domain"
-	"github.com/Work-Fort/Combine/internal/legacy/config"
+	"github.com/Work-Fort/Combine/internal/config"
 	"github.com/Work-Fort/Combine/internal/infra/gitutil"
 	"github.com/Work-Fort/Combine/internal/infra/lfs"
 	"github.com/Work-Fort/Combine/internal/infra/utils"

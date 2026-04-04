@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Work-Fort/Combine/internal/legacy/config"
+	"github.com/Work-Fort/Combine/internal/config"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 

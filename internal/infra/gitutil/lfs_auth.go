@@ -9,7 +9,7 @@ import (
 
 	"charm.land/log/v2"
 	"github.com/Work-Fort/Combine/internal/domain"
-	"github.com/Work-Fort/Combine/internal/legacy/config"
+	"github.com/Work-Fort/Combine/internal/config"
 	"github.com/Work-Fort/Combine/internal/infra/jwk"
 	"github.com/Work-Fort/Combine/internal/infra/lfs"
 	"github.com/golang-jwt/jwt/v5"

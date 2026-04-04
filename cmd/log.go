@@ -1,22 +1,20 @@
-package log
+package cmd
 
 import (
 	"os"
 	"strings"
-	"time"
 
 	"charm.land/log/v2"
 	"github.com/Work-Fort/Combine/internal/config"
 )
 
-// NewLogger returns a new logger with default settings.
-func NewLogger(cfg *config.Config) (*log.Logger, *os.File, error) {
+// newLogger creates a logger from the given config.
+func newLogger(cfg *config.Config) (*log.Logger, *os.File, error) {
 	if cfg == nil {
 		return nil, nil, config.ErrNilConfig
 	}
 	logger := log.NewWithOptions(os.Stderr, log.Options{
 		ReportTimestamp: true,
-		TimeFormat:      time.DateOnly,
 	})
 
 	switch {

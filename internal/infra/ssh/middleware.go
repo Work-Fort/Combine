@@ -9,7 +9,7 @@ import (
 	"charm.land/wish/v2"
 	"github.com/Work-Fort/Combine/internal/app/backend"
 	"github.com/Work-Fort/Combine/internal/domain"
-	"github.com/Work-Fort/Combine/internal/legacy/config"
+	"github.com/Work-Fort/Combine/internal/config"
 	"github.com/Work-Fort/Combine/internal/infra/ssh/cmd"
 	"github.com/Work-Fort/Combine/internal/infra/sshutils"
 	"github.com/charmbracelet/ssh"

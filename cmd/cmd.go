@@ -10,12 +10,26 @@ import (
 
 	"charm.land/log/v2"
 	"github.com/Work-Fort/Combine/internal/app/backend"
+	"github.com/Work-Fort/Combine/internal/config"
 	"github.com/Work-Fort/Combine/internal/domain"
 	infra "github.com/Work-Fort/Combine/internal/infra"
 	"github.com/Work-Fort/Combine/internal/infra/hooks"
-	"github.com/Work-Fort/Combine/internal/legacy/config"
 	"github.com/spf13/cobra"
 )
+
+// ChainedInitBackendContext chains the root command's PersistentPreRunE
+// (which loads config) with backend initialization. Use this as
+// PersistentPreRunE on subcommands that override the root's hook.
+func ChainedInitBackendContext(c *cobra.Command, args []string) error {
+	// Walk up to root and invoke its PersistentPreRunE to load config.
+	root := c.Root()
+	if root != nil && root.PersistentPreRunE != nil {
+		if err := root.PersistentPreRunE(c, args); err != nil {
+			return err
+		}
+	}
+	return InitBackendContext(c, args)
+}
 
 // InitBackendContext initializes the backend context.
 func InitBackendContext(cmd *cobra.Command, _ []string) error {

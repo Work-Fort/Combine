@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/Work-Fort/Combine/internal/infra/git"
-	"github.com/Work-Fort/Combine/internal/legacy/config"
+	"github.com/Work-Fort/Combine/internal/config"
 )
 
 func TestGenerateHooks(t *testing.T) {
