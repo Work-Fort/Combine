@@ -23,6 +23,9 @@ func NewRouter(ctx context.Context, passport *PassportAuth) http.Handler {
 	if passport != nil {
 		api := router.PathPrefix("/api/v1").Subrouter()
 		api.Use(passport.Middleware)
+		// Issue routes MUST be registered before repo routes — the {repo:.+} pattern
+		// is greedy and will swallow /repos/{repo}/issues paths otherwise.
+		RegisterIssueRoutes(api)
 		RegisterRepoRoutes(api)
 		RegisterKeyRoutes(api)
 	}
