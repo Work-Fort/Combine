@@ -38,4 +38,7 @@ var (
 
 	// ErrIdentityNotFound is returned when a Passport identity is not found.
 	ErrIdentityNotFound = errors.New("identity not found")
+
+	// ErrIssueNotFound is returned when an issue is not found.
+	ErrIssueNotFound = errors.New("issue not found")
 )

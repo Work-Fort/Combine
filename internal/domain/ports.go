@@ -119,6 +119,19 @@ type IdentityStore interface {
 	ListIdentityPublicKeys(ctx context.Context, identityID string) ([]*PublicKey, error)
 }
 
+// IssueStore is the port for issue persistence.
+type IssueStore interface {
+	CreateIssue(ctx context.Context, issue *Issue) error
+	GetIssueByNumber(ctx context.Context, repoID int64, number int64) (*Issue, error)
+	ListIssues(ctx context.Context, repoID int64, opts IssueListOptions) ([]*Issue, error)
+	UpdateIssue(ctx context.Context, issue *Issue) error
+
+	SetIssueLabels(ctx context.Context, issueID int64, labels []string) error
+
+	CreateIssueComment(ctx context.Context, comment *IssueComment) error
+	ListIssueComments(ctx context.Context, issueID int64) ([]*IssueComment, error)
+}
+
 // Store is the composite port for all persistence operations.
 type Store interface {
 	RepoStore
@@ -129,6 +142,7 @@ type Store interface {
 	LFSStore
 	WebhookStore
 	IdentityStore
+	IssueStore
 
 	// NOTE: Combine-specific deviation from Nexus/Hive convention.
 	// Neither service exposes Transaction on their Store interface.

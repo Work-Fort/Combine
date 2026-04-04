@@ -200,6 +200,59 @@ const (
 	IdentityTypeService = "service"
 )
 
+// IssueStatus represents the status of an issue.
+type IssueStatus string
+
+const (
+	IssueStatusOpen       IssueStatus = "open"
+	IssueStatusInProgress IssueStatus = "in_progress"
+	IssueStatusClosed     IssueStatus = "closed"
+)
+
+// IssueResolution represents the resolution of a closed issue.
+type IssueResolution string
+
+const (
+	IssueResolutionNone      IssueResolution = ""
+	IssueResolutionFixed     IssueResolution = "fixed"
+	IssueResolutionWontfix   IssueResolution = "wontfix"
+	IssueResolutionDuplicate IssueResolution = "duplicate"
+)
+
+// Issue is a repository issue.
+type Issue struct {
+	ID         int64           // Global autoincrement PK (internal)
+	Number     int64           // Per-repo issue number (user-facing)
+	RepoID     int64           // FK to repos.id
+	AuthorID   string          // FK to identities.id
+	Title      string
+	Body       string
+	Status     IssueStatus
+	Resolution IssueResolution
+	AssigneeID *string         // FK to identities.id, nullable
+	Labels     []string        // Denormalized from issue_labels table
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	ClosedAt   *time.Time
+}
+
+// IssueComment is a comment on an issue.
+type IssueComment struct {
+	ID        int64
+	IssueID   int64  // FK to issues.id (global PK)
+	AuthorID  string // FK to identities.id
+	Body      string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+// IssueListOptions controls filtering for ListIssues.
+type IssueListOptions struct {
+	Status     *IssueStatus
+	Label      *string
+	AssigneeID *string
+}
+
 // Webhook is a repository webhook.
 type Webhook struct {
 	ID          int64
