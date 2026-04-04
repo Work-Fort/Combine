@@ -183,6 +183,23 @@ type LFSLock struct {
 	UpdatedAt time.Time
 }
 
+// Identity represents a Passport-authenticated identity stored locally.
+type Identity struct {
+	ID          string    // Passport UUID, primary key
+	Username    string    // From Passport claims
+	DisplayName string    // From Passport claims
+	Type        string    // "user", "agent", "service"
+	IsAdmin     bool      // Local admin flag
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+const (
+	IdentityTypeUser    = "user"
+	IdentityTypeAgent   = "agent"
+	IdentityTypeService = "service"
+)
+
 // Webhook is a repository webhook.
 type Webhook struct {
 	ID          int64

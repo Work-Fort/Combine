@@ -35,4 +35,7 @@ var (
 
 	// ErrFileNotFound is returned when a file is not found.
 	ErrFileNotFound = errors.New("file not found")
+
+	// ErrIdentityNotFound is returned when a Passport identity is not found.
+	ErrIdentityNotFound = errors.New("identity not found")
 )

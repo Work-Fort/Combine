@@ -106,6 +106,19 @@ type WebhookStore interface {
 	DeleteWebhookDeliveryByID(ctx context.Context, webhookID int64, id uuid.UUID) error
 }
 
+// IdentityStore persists Passport identity records.
+type IdentityStore interface {
+	UpsertIdentity(ctx context.Context, id, username, displayName, identityType string) (*Identity, error)
+	GetIdentityByID(ctx context.Context, id string) (*Identity, error)
+	GetIdentityByUsername(ctx context.Context, username string) (*Identity, error)
+	GetIdentityByPublicKey(ctx context.Context, pk ssh.PublicKey) (*Identity, error)
+	ListIdentities(ctx context.Context) ([]*Identity, error)
+	SetIdentityAdmin(ctx context.Context, id string, isAdmin bool) error
+	AddIdentityPublicKey(ctx context.Context, identityID string, pk ssh.PublicKey) error
+	RemoveIdentityPublicKey(ctx context.Context, identityID string, keyID int64) error
+	ListIdentityPublicKeys(ctx context.Context, identityID string) ([]*PublicKey, error)
+}
+
 // Store is the composite port for all persistence operations.
 type Store interface {
 	RepoStore
@@ -115,6 +128,7 @@ type Store interface {
 	AccessTokenStore
 	LFSStore
 	WebhookStore
+	IdentityStore
 
 	// NOTE: Combine-specific deviation from Nexus/Hive convention.
 	// Neither service exposes Transaction on their Store interface.

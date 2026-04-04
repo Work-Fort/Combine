@@ -63,6 +63,21 @@ func WithAccessLevelContext(ctx context.Context, ac AccessLevel) context.Context
 	return context.WithValue(ctx, accessLevelContextKey, ac)
 }
 
+var identityContextKey = &contextKey{"identity"}
+
+// IdentityFromContext returns the identity from the context.
+func IdentityFromContext(ctx context.Context) *Identity {
+	if id, ok := ctx.Value(identityContextKey).(*Identity); ok {
+		return id
+	}
+	return nil
+}
+
+// WithIdentityContext returns a new context with the given identity.
+func WithIdentityContext(ctx context.Context, id *Identity) context.Context {
+	return context.WithValue(ctx, identityContextKey, id)
+}
+
 // UserContextKey returns the context key used for users.
 // This is exposed for SSH session context which uses SetValue directly.
 func UserContextKey() *contextKey {
