@@ -733,24 +733,6 @@ The migration must create all tables: repos, users, public_keys, collabs,
 settings, access_tokens, lfs_objects, lfs_locks, webhooks, webhook_events,
 webhook_deliveries.
 
-**Migration compatibility:** Existing databases use a custom `migrations` table
-(not Goose). The `Open()` function must check for the old `migrations` table
-and, if present, seed Goose's `goose_db_version` table to mark `001_init.sql`
-as already applied. This prevents re-running the init migration on existing
-deployments. Pattern:
-```go
-// Check if this is an existing database with old migration system
-var oldMigrationExists bool
-err := db.QueryRow("SELECT 1 FROM sqlite_master WHERE type='table' AND name='migrations'").Scan(&oldMigrationExists)
-if err == nil && oldMigrationExists {
-    // Seed Goose version table so it skips 001_init.sql
-    goose.SetBaseFS(embedMigrations)
-    goose.SetDialect("sqlite3")
-    // Insert version record for migration 1
-    db.Exec("CREATE TABLE IF NOT EXISTS goose_db_version (id INTEGER PRIMARY KEY AUTOINCREMENT, version_id INTEGER NOT NULL, is_applied INTEGER NOT NULL, tstamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
-    db.Exec("INSERT INTO goose_db_version (version_id, is_applied) VALUES (1, 1)")
-}
-```
 
 **Step 2: Write store.go**
 
