@@ -55,7 +55,6 @@ func NewPushEvent(ctx context.Context, user proto.User, repo proto.Repository, r
 	cfg := config.FromContext(ctx)
 	payload.Repository.HTTPURL = repoURL(cfg.HTTP.PublicURL, repo.Name())
 	payload.Repository.SSHURL = repoURL(cfg.SSH.PublicURL, repo.Name())
-	payload.Repository.GitURL = repoURL(cfg.Git.PublicURL, repo.Name())
 
 	// Find repo owner.
 	dbx := db.FromContext(ctx)

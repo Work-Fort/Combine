@@ -67,13 +67,6 @@ func (d *Backend) CreateRepository(ctx context.Context, name string, user proto.
 			return err
 		}
 
-		if !opts.Private {
-			if err := os.WriteFile(filepath.Join(rp, "git-daemon-export-ok"), []byte{}, fs.ModePerm); err != nil {
-				d.logger.Error("failed to write git-daemon-export-ok", "repo", name, "err", err)
-				return err
-			}
-		}
-
 		return hooks.GenerateHooks(ctx, d.cfg, name)
 	}); err != nil {
 		d.logger.Debug("failed to create repository in database", "err", err)
@@ -565,28 +558,12 @@ func (d *Backend) SetDescription(ctx context.Context, name string, desc string) 
 // It implements backend.Backend.
 func (d *Backend) SetPrivate(ctx context.Context, name string, private bool) error {
 	name = utils.SanitizeRepo(name)
-	rp := filepath.Join(d.repoPath(name))
 
 	// Delete cache
 	d.cache.Delete(name)
 
 	if err := db.WrapError(
 		d.db.TransactionContext(ctx, func(tx *db.Tx) error {
-			fp := filepath.Join(rp, "git-daemon-export-ok")
-			if !private {
-				if err := os.WriteFile(fp, []byte{}, fs.ModePerm); err != nil {
-					d.logger.Error("failed to write git-daemon-export-ok", "repo", name, "err", err)
-					return err
-				}
-			} else {
-				if _, err := os.Stat(fp); err == nil {
-					if err := os.Remove(fp); err != nil {
-						d.logger.Error("failed to remove git-daemon-export-ok", "repo", name, "err", err)
-						return err
-					}
-				}
-			}
-
 			return d.store.SetRepoIsPrivateByName(ctx, tx, name, private)
 		}),
 	); err != nil {

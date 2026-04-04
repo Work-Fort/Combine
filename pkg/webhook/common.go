@@ -60,8 +60,6 @@ type Repository struct {
 	HTTPURL string `json:"http_url" url:"http_url"`
 	// SSHURL is the repository SSH URL.
 	SSHURL string `json:"ssh_url" url:"ssh_url"`
-	// GitURL is the repository Git URL.
-	GitURL string `json:"git_url" url:"git_url"`
 	// CreatedAt is the repository creation time.
 	CreatedAt time.Time `json:"created_at" url:"created_at"`
 	// UpdatedAt is the repository last update time.

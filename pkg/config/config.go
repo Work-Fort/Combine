@@ -40,27 +40,6 @@ type SSHConfig struct {
 	IdleTimeout int `env:"IDLE_TIMEOUT" yaml:"idle_timeout"`
 }
 
-// GitConfig is the Git daemon configuration for the server.
-type GitConfig struct {
-	// Enabled toggles the Git daemon on/off
-	Enabled bool `env:"ENABLED" yaml:"enabled"`
-
-	// ListenAddr is the address on which the Git daemon will listen.
-	ListenAddr string `env:"LISTEN_ADDR" yaml:"listen_addr"`
-
-	// PublicURL is the public URL of the Git daemon server.
-	PublicURL string `env:"PUBLIC_URL" yaml:"public_url"`
-
-	// MaxTimeout is the maximum number of seconds a connection can take.
-	MaxTimeout int `env:"MAX_TIMEOUT" yaml:"max_timeout"`
-
-	// IdleTimeout is the number of seconds a connection can be idle before it is closed.
-	IdleTimeout int `env:"IDLE_TIMEOUT" yaml:"idle_timeout"`
-
-	// MaxConnections is the maximum number of concurrent connections.
-	MaxConnections int `env:"MAX_CONNECTIONS" yaml:"max_connections"`
-}
-
 // CORSConfig is the CORS configuration for the server.
 type CORSConfig struct {
 	AllowedHeaders []string `env:"ALLOWED_HEADERS" yaml:"allowed_headers"`
@@ -147,9 +126,6 @@ type Config struct {
 	// SSH is the configuration for the SSH server.
 	SSH SSHConfig `envPrefix:"SSH_" yaml:"ssh"`
 
-	// Git is the configuration for the Git daemon.
-	Git GitConfig `envPrefix:"GIT_" yaml:"git"`
-
 	// HTTP is the configuration for the HTTP server.
 	HTTP HTTPConfig `envPrefix:"HTTP_" yaml:"http"`
 
@@ -197,13 +173,7 @@ func (c *Config) Environ() []string {
 		fmt.Sprintf("COMBINE_SSH_CLIENT_KEY_PATH=%s", c.SSH.ClientKeyPath),
 		fmt.Sprintf("COMBINE_SSH_MAX_TIMEOUT=%d", c.SSH.MaxTimeout),
 		fmt.Sprintf("COMBINE_SSH_IDLE_TIMEOUT=%d", c.SSH.IdleTimeout),
-		fmt.Sprintf("COMBINE_GIT_ENABLED=%t", c.Git.Enabled),
-		fmt.Sprintf("COMBINE_GIT_LISTEN_ADDR=%s", c.Git.ListenAddr),
-		fmt.Sprintf("COMBINE_GIT_PUBLIC_URL=%s", c.Git.PublicURL),
-		fmt.Sprintf("COMBINE_GIT_MAX_TIMEOUT=%d", c.Git.MaxTimeout),
-		fmt.Sprintf("COMBINE_GIT_IDLE_TIMEOUT=%d", c.Git.IdleTimeout),
-		fmt.Sprintf("COMBINE_GIT_MAX_CONNECTIONS=%d", c.Git.MaxConnections),
-		fmt.Sprintf("COMBINE_HTTP_ENABLED=%t", c.HTTP.Enabled),
+fmt.Sprintf("COMBINE_HTTP_ENABLED=%t", c.HTTP.Enabled),
 		fmt.Sprintf("COMBINE_HTTP_LISTEN_ADDR=%s", c.HTTP.ListenAddr),
 		fmt.Sprintf("COMBINE_HTTP_TLS_KEY_PATH=%s", c.HTTP.TLSKeyPath),
 		fmt.Sprintf("COMBINE_HTTP_TLS_CERT_PATH=%s", c.HTTP.TLSCertPath),
@@ -357,14 +327,6 @@ func DefaultConfig() *Config {
 			ClientKeyPath: filepath.Join("ssh", "combine_client_ed25519"),
 			MaxTimeout:    0,
 			IdleTimeout:   10 * 60, // 10 minutes
-		},
-		Git: GitConfig{
-			Enabled:        true,
-			ListenAddr:     ":9418",
-			PublicURL:      "git://localhost",
-			MaxTimeout:     0,
-			IdleTimeout:    3,
-			MaxConnections: 32,
 		},
 		HTTP: HTTPConfig{
 			Enabled:    true,

@@ -2,7 +2,7 @@
 
 A self-hostable Git forge for the WorkFort platform.
 
-Combine provides Git hosting over SSH, HTTP, and the Git protocol, with
+Combine provides Git hosting over SSH and HTTP, with
 Git LFS support, access control, and webhooks. It is forked from
 [Soft Serve](https://github.com/charmbracelet/soft-serve) by Charm.
 

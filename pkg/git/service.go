@@ -13,7 +13,7 @@ import (
 	"charm.land/log/v2"
 )
 
-// Service is a Git daemon service.
+// Service is a Git service type.
 type Service string
 
 const (

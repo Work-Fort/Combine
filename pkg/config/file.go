@@ -48,28 +48,6 @@ ssh:
   # A value of 0 means no timeout.
   idle_timeout: {{ .SSH.IdleTimeout }}
 
-# The Git daemon configuration.
-git:
-  # Enable the Git daemon.
-  enabled: {{ .Git.Enabled }}
-
-  # The address on which the Git daemon will listen.
-  listen_addr: "{{ .Git.ListenAddr }}"
-
-  # The public URL of the Git daemon server.
-  # This is the address that will be used to clone repositories.
-  public_url: "{{ .Git.PublicURL }}"
-
-  # The maximum number of seconds a connection can take.
-  # A value of 0 means no timeout.
-  max_timeout: {{ .Git.MaxTimeout }}
-
-  # The number of seconds a connection can be idle before it is closed.
-  idle_timeout: {{ .Git.IdleTimeout }}
-
-  # The maximum number of concurrent connections.
-  max_connections: {{ .Git.MaxConnections }}
-
 # The HTTP server configuration.
 http:
   # Enable the HTTP server.

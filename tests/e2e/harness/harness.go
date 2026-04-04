@@ -103,7 +103,6 @@ func StartDaemon(t *testing.T, binary string) *Daemon {
 		"COMBINE_INITIAL_ADMIN_KEYS="+strings.TrimSpace(string(pubKeyBytes)),
 		"COMBINE_SSH_LISTEN_ADDR="+sshAddr,
 		"COMBINE_HTTP_LISTEN_ADDR="+httpAddr,
-		"COMBINE_GIT_ENABLED=false",
 		"COMBINE_STATS_ENABLED=false",
 		"COMBINE_TESTRUN=true",
 	)
