@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/Work-Fort/Combine/cmd"
-	"github.com/Work-Fort/Combine/pkg/backend"
+	"github.com/Work-Fort/Combine/internal/app/backend"
 	"github.com/Work-Fort/Combine/pkg/config"
 	"github.com/Work-Fort/Combine/pkg/db"
 	"github.com/Work-Fort/Combine/pkg/db/migrate"

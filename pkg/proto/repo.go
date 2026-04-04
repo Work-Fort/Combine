@@ -3,7 +3,7 @@ package proto
 import (
 	"time"
 
-	"github.com/Work-Fort/Combine/git"
+	"github.com/Work-Fort/Combine/internal/infra/git"
 )
 
 // Repository is a Git repository interface.

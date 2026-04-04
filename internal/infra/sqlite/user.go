@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/Work-Fort/Combine/internal/domain"
-	"github.com/Work-Fort/Combine/pkg/sshutils"
+	"github.com/Work-Fort/Combine/internal/infra/sshutils"
 	"golang.org/x/crypto/ssh"
 )
 

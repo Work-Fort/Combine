@@ -9,14 +9,14 @@ import (
 
 	"charm.land/log/v2"
 
-	"github.com/Work-Fort/Combine/pkg/backend"
+	"github.com/Work-Fort/Combine/internal/app/backend"
 	"github.com/Work-Fort/Combine/pkg/config"
-	"github.com/Work-Fort/Combine/pkg/cron"
+	"github.com/Work-Fort/Combine/internal/infra/cron"
 	"github.com/Work-Fort/Combine/pkg/db"
-	"github.com/Work-Fort/Combine/pkg/jobs"
-	sshsrv "github.com/Work-Fort/Combine/pkg/ssh"
-	"github.com/Work-Fort/Combine/pkg/stats"
-	"github.com/Work-Fort/Combine/pkg/web"
+	"github.com/Work-Fort/Combine/internal/infra/jobs"
+	sshsrv "github.com/Work-Fort/Combine/internal/infra/ssh"
+	"github.com/Work-Fort/Combine/internal/infra/stats"
+	"github.com/Work-Fort/Combine/internal/infra/httpapi"
 	"github.com/charmbracelet/ssh"
 	"golang.org/x/sync/errgroup"
 )

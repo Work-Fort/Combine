@@ -6,7 +6,7 @@ import (
 	"github.com/Work-Fort/Combine/pkg/db"
 	"github.com/Work-Fort/Combine/pkg/db/models"
 	"github.com/Work-Fort/Combine/pkg/store"
-	"github.com/Work-Fort/Combine/pkg/utils"
+	"github.com/Work-Fort/Combine/internal/infra/utils"
 )
 
 type repoStore struct{}

@@ -7,10 +7,10 @@ import (
 	"io/fs"
 	"os"
 
-	"github.com/Work-Fort/Combine/pkg/backend"
+	"github.com/Work-Fort/Combine/internal/app/backend"
 	"github.com/Work-Fort/Combine/pkg/config"
 	"github.com/Work-Fort/Combine/pkg/db"
-	"github.com/Work-Fort/Combine/pkg/hooks"
+	"github.com/Work-Fort/Combine/internal/infra/hooks"
 	"github.com/Work-Fort/Combine/pkg/store"
 	"github.com/Work-Fort/Combine/pkg/store/database"
 	"github.com/spf13/cobra"

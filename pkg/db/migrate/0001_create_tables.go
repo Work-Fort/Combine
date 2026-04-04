@@ -9,7 +9,7 @@ import (
 	"github.com/Work-Fort/Combine/pkg/access"
 	"github.com/Work-Fort/Combine/pkg/config"
 	"github.com/Work-Fort/Combine/pkg/db"
-	"github.com/Work-Fort/Combine/pkg/sshutils"
+	"github.com/Work-Fort/Combine/internal/infra/sshutils"
 )
 
 const (
