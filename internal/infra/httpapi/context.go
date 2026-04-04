@@ -6,19 +6,17 @@ import (
 
 	"charm.land/log/v2"
 	"github.com/Work-Fort/Combine/internal/app/backend"
+	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/Work-Fort/Combine/pkg/config"
-	"github.com/Work-Fort/Combine/pkg/db"
-	"github.com/Work-Fort/Combine/pkg/store"
 )
 
 // NewContextHandler returns a new context middleware.
-// This middleware adds the config, backend, and logger to the request context.
+// This middleware adds the config, backend, store, and logger to the request context.
 func NewContextHandler(ctx context.Context) func(http.Handler) http.Handler {
 	cfg := config.FromContext(ctx)
 	be := backend.FromContext(ctx)
 	logger := log.FromContext(ctx).WithPrefix("http")
-	dbx := db.FromContext(ctx)
-	datastore := store.FromContext(ctx)
+	datastore := domain.StoreFromContext(ctx)
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
@@ -29,8 +27,7 @@ func NewContextHandler(ctx context.Context) func(http.Handler) http.Handler {
 				"path", r.URL,
 				"addr", r.RemoteAddr,
 			))
-			ctx = db.WithContext(ctx, dbx)
-			ctx = store.WithContext(ctx, datastore)
+			ctx = domain.WithStoreContext(ctx, datastore)
 			r = r.WithContext(ctx)
 
 			next.ServeHTTP(w, r)

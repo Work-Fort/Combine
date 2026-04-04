@@ -29,8 +29,14 @@ const (
 // This function should be called by the backend when a repository is created.
 // TODO: support context.
 func GenerateHooks(_ context.Context, cfg *config.Config, repo string) error {
+	return GenerateHooksWithPaths(nil, cfg.DataPath, repo)
+}
+
+// GenerateHooksWithPaths generates git server-side hooks using explicit paths
+// instead of a config object.
+func GenerateHooksWithPaths(_ context.Context, dataPath string, repo string) error {
 	repo = utils.SanitizeRepo(repo) + ".git"
-	hooksPath := filepath.Join(cfg.DataPath, "repos", repo, "hooks")
+	hooksPath := filepath.Join(dataPath, "repos", repo, "hooks")
 	if err := os.MkdirAll(hooksPath, os.ModePerm); err != nil {
 		return err
 	}

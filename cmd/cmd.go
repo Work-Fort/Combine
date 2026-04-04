@@ -6,13 +6,14 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 
+	"charm.land/log/v2"
 	"github.com/Work-Fort/Combine/internal/app/backend"
-	"github.com/Work-Fort/Combine/pkg/config"
-	"github.com/Work-Fort/Combine/pkg/db"
+	"github.com/Work-Fort/Combine/internal/domain"
+	infra "github.com/Work-Fort/Combine/internal/infra"
 	"github.com/Work-Fort/Combine/internal/infra/hooks"
-	"github.com/Work-Fort/Combine/pkg/store"
-	"github.com/Work-Fort/Combine/pkg/store/database"
+	"github.com/Work-Fort/Combine/pkg/config"
 	"github.com/spf13/cobra"
 )
 
@@ -20,20 +21,28 @@ import (
 func InitBackendContext(cmd *cobra.Command, _ []string) error {
 	ctx := cmd.Context()
 	cfg := config.FromContext(ctx)
+	logger := log.FromContext(ctx)
 	if _, err := os.Stat(cfg.DataPath); errors.Is(err, fs.ErrNotExist) {
 		if err := os.MkdirAll(cfg.DataPath, os.ModePerm); err != nil {
 			return fmt.Errorf("create data directory: %w", err)
 		}
 	}
-	dbx, err := db.Open(ctx, cfg.DB.Driver, cfg.DB.DataSource)
+
+	store, err := infra.Open(cfg.DB.DataSource)
 	if err != nil {
-		return fmt.Errorf("open database: %w", err)
+		return fmt.Errorf("open store: %w", err)
 	}
 
-	ctx = db.WithContext(ctx, dbx)
-	dbstore := database.New(ctx, dbx)
-	ctx = store.WithContext(ctx, dbstore)
-	be := backend.New(ctx, cfg, dbx, dbstore)
+	ctx = domain.WithStoreContext(ctx, store)
+
+	beCfg := backend.BackendConfig{
+		RepoDir:            filepath.Join(cfg.DataPath, "repos"),
+		DataDir:            cfg.DataPath,
+		AdminKeys:          cfg.AdminKeys(),
+		SSHClientKeyPath:   cfg.SSH.ClientKeyPath,
+		SSHKnownHostsPath: filepath.Join(cfg.DataPath, "ssh", "known_hosts"),
+	}
+	be := backend.New(ctx, store, beCfg, logger.WithPrefix("backend"))
 	ctx = backend.WithContext(ctx, be)
 
 	cmd.SetContext(ctx)
@@ -41,13 +50,13 @@ func InitBackendContext(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
-// CloseDBContext closes the database context.
-func CloseDBContext(cmd *cobra.Command, _ []string) error {
+// CloseStoreContext closes the store context.
+func CloseStoreContext(cmd *cobra.Command, _ []string) error {
 	ctx := cmd.Context()
-	dbx := db.FromContext(ctx)
-	if dbx != nil {
-		if err := dbx.Close(); err != nil {
-			return fmt.Errorf("close database: %w", err)
+	store := domain.StoreFromContext(ctx)
+	if store != nil {
+		if err := store.Close(); err != nil {
+			return fmt.Errorf("close store: %w", err)
 		}
 	}
 
@@ -62,7 +71,7 @@ func InitializeHooks(ctx context.Context, cfg *config.Config, be *backend.Backen
 	}
 
 	for _, repo := range repos {
-		if err := hooks.GenerateHooks(ctx, cfg, repo.Name()); err != nil {
+		if err := hooks.GenerateHooks(ctx, cfg, repo.Name); err != nil {
 			return err
 		}
 	}

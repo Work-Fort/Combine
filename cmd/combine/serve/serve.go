@@ -29,7 +29,7 @@ var (
 		Short:              "Start the server",
 		Args:               cobra.NoArgs,
 		PersistentPreRunE:  cmd.InitBackendContext,
-		PersistentPostRunE: cmd.CloseDBContext,
+		PersistentPostRunE: cmd.CloseStoreContext,
 		RunE: func(c *cobra.Command, _ []string) error {
 			ctx := c.Context()
 			cfg := config.DefaultConfig()

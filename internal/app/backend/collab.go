@@ -5,18 +5,13 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/Work-Fort/Combine/pkg/access"
-	"github.com/Work-Fort/Combine/pkg/db"
-	"github.com/Work-Fort/Combine/pkg/db/models"
-	"github.com/Work-Fort/Combine/pkg/proto"
+	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/Work-Fort/Combine/internal/infra/utils"
 	"github.com/Work-Fort/Combine/internal/infra/webhook"
 )
 
 // AddCollaborator adds a collaborator to a repository.
-//
-// It implements backend.Backend.
-func (d *Backend) AddCollaborator(ctx context.Context, repo string, username string, level access.AccessLevel) error {
+func (d *Backend) AddCollaborator(ctx context.Context, repo string, username string, level domain.AccessLevel) error {
 	username = strings.ToLower(username)
 	if err := utils.ValidateUsername(username); err != nil {
 		return err
@@ -28,19 +23,14 @@ func (d *Backend) AddCollaborator(ctx context.Context, repo string, username str
 		return err
 	}
 
-	if err := db.WrapError(
-		d.db.TransactionContext(ctx, func(tx *db.Tx) error {
-			return d.store.AddCollabByUsernameAndRepo(ctx, tx, username, repo, level)
-		}),
-	); err != nil {
-		if errors.Is(err, db.ErrDuplicateKey) {
-			return proto.ErrCollaboratorExist
+	if err := d.store.AddCollabByUsernameAndRepo(ctx, username, repo, level); err != nil {
+		if errors.Is(err, domain.ErrAlreadyExists) {
+			return domain.ErrCollaboratorExist
 		}
-
 		return err
 	}
 
-	wh, err := webhook.NewCollaboratorEvent(ctx, proto.UserFromContext(ctx), r, username, webhook.CollaboratorEventAdded)
+	wh, err := webhook.NewCollaboratorEvent(ctx, domain.UserFromContext(ctx), r, username, webhook.CollaboratorEventAdded)
 	if err != nil {
 		return err
 	}
@@ -49,20 +39,14 @@ func (d *Backend) AddCollaborator(ctx context.Context, repo string, username str
 }
 
 // Collaborators returns a list of collaborators for a repository.
-//
-// It implements backend.Backend.
 func (d *Backend) Collaborators(ctx context.Context, repo string) ([]string, error) {
 	repo = utils.SanitizeRepo(repo)
-	var users []models.User
-	if err := d.db.TransactionContext(ctx, func(tx *db.Tx) error {
-		var err error
-		users, err = d.store.ListCollabsByRepoAsUsers(ctx, tx, repo)
-		return err
-	}); err != nil {
-		return nil, db.WrapError(err)
+	users, err := d.store.ListCollabsByRepoAsUsers(ctx, repo)
+	if err != nil {
+		return nil, err
 	}
 
-	var usernames []string
+	usernames := make([]string, 0, len(users))
 	for _, u := range users {
 		usernames = append(usernames, u.Username)
 	}
@@ -71,29 +55,24 @@ func (d *Backend) Collaborators(ctx context.Context, repo string) ([]string, err
 }
 
 // IsCollaborator returns the access level and true if the user is a collaborator of the repository.
-//
-// It implements backend.Backend.
-func (d *Backend) IsCollaborator(ctx context.Context, repo string, username string) (access.AccessLevel, bool, error) {
+func (d *Backend) IsCollaborator(ctx context.Context, repo string, username string) (domain.AccessLevel, bool, error) {
 	if username == "" {
 		return -1, false, nil
 	}
 
 	repo = utils.SanitizeRepo(repo)
-	var m models.Collab
-	if err := d.db.TransactionContext(ctx, func(tx *db.Tx) error {
-		var err error
-		m, err = d.store.GetCollabByUsernameAndRepo(ctx, tx, username, repo)
-		return err
-	}); err != nil {
-		return -1, false, db.WrapError(err)
+	m, err := d.store.GetCollabByUsernameAndRepo(ctx, username, repo)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			return -1, false, nil
+		}
+		return -1, false, err
 	}
 
 	return m.AccessLevel, m.ID > 0, nil
 }
 
 // RemoveCollaborator removes a collaborator from a repository.
-//
-// It implements backend.Backend.
 func (d *Backend) RemoveCollaborator(ctx context.Context, repo string, username string) error {
 	repo = utils.SanitizeRepo(repo)
 	r, err := d.Repository(ctx, repo)
@@ -101,20 +80,15 @@ func (d *Backend) RemoveCollaborator(ctx context.Context, repo string, username 
 		return err
 	}
 
-	wh, err := webhook.NewCollaboratorEvent(ctx, proto.UserFromContext(ctx), r, username, webhook.CollaboratorEventRemoved)
+	wh, err := webhook.NewCollaboratorEvent(ctx, domain.UserFromContext(ctx), r, username, webhook.CollaboratorEventRemoved)
 	if err != nil {
 		return err
 	}
 
-	if err := db.WrapError(
-		d.db.TransactionContext(ctx, func(tx *db.Tx) error {
-			return d.store.RemoveCollabByUsernameAndRepo(ctx, tx, username, repo)
-		}),
-	); err != nil {
-		if errors.Is(err, db.ErrRecordNotFound) {
-			return proto.ErrCollaboratorNotFound
+	if err := d.store.RemoveCollabByUsernameAndRepo(ctx, username, repo); err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			return domain.ErrCollaboratorNotFound
 		}
-
 		return err
 	}
 

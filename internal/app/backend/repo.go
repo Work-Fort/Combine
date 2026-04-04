@@ -13,12 +13,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/Work-Fort/Combine/internal/infra/git"
-	"github.com/Work-Fort/Combine/pkg/db"
-	"github.com/Work-Fort/Combine/pkg/db/models"
 	"github.com/Work-Fort/Combine/internal/infra/hooks"
 	"github.com/Work-Fort/Combine/internal/infra/lfs"
-	"github.com/Work-Fort/Combine/pkg/proto"
 	"github.com/Work-Fort/Combine/internal/infra/storage"
 	"github.com/Work-Fort/Combine/internal/infra/task"
 	"github.com/Work-Fort/Combine/internal/infra/utils"
@@ -26,33 +24,31 @@ import (
 )
 
 // CreateRepository creates a new repository.
-//
-// It implements backend.Backend.
-func (d *Backend) CreateRepository(ctx context.Context, name string, user proto.User, opts proto.RepositoryOptions) (proto.Repository, error) {
+func (d *Backend) CreateRepository(ctx context.Context, name string, user *domain.User, opts domain.RepoOptions) (*domain.Repo, error) {
 	name = utils.SanitizeRepo(name)
 	if err := utils.ValidateRepo(name); err != nil {
 		return nil, err
 	}
 
-	rp := filepath.Join(d.repoPath(name))
+	rp := d.repoPath(name)
 
-	var userID int64
+	var userID *int64
 	if user != nil {
-		userID = user.ID()
+		uid := user.ID
+		userID = &uid
 	}
 
-	if err := d.db.TransactionContext(ctx, func(tx *db.Tx) error {
-		if err := d.store.CreateRepo(
-			ctx,
-			tx,
-			name,
-			userID,
-			opts.ProjectName,
-			opts.Description,
-			opts.Private,
-			opts.Hidden,
-			opts.Mirror,
-		); err != nil {
+	if err := d.store.Transaction(ctx, func(tx domain.Store) error {
+		repo := &domain.Repo{
+			Name:        name,
+			ProjectName: opts.ProjectName,
+			Description: opts.Description,
+			Private:     opts.Private,
+			Hidden:      opts.Hidden,
+			Mirror:      opts.Mirror,
+			UserID:      userID,
+		}
+		if err := tx.CreateRepo(ctx, repo); err != nil {
 			return err
 		}
 
@@ -67,12 +63,11 @@ func (d *Backend) CreateRepository(ctx context.Context, name string, user proto.
 			return err
 		}
 
-		return hooks.GenerateHooks(ctx, d.cfg, name)
+		return hooks.GenerateHooksWithPaths(ctx, d.cfg.DataDir, name)
 	}); err != nil {
 		d.logger.Debug("failed to create repository in database", "err", err)
-		err = db.WrapError(err)
-		if errors.Is(err, db.ErrDuplicateKey) {
-			return nil, proto.ErrRepoExist
+		if errors.Is(err, domain.ErrAlreadyExists) {
+			return nil, domain.ErrRepoExist
 		}
 
 		return nil, err
@@ -83,13 +78,13 @@ func (d *Backend) CreateRepository(ctx context.Context, name string, user proto.
 
 // ImportRepository imports a repository from remote.
 // XXX: This a expensive operation and should be run in a goroutine.
-func (d *Backend) ImportRepository(_ context.Context, name string, user proto.User, remote string, opts proto.RepositoryOptions) (proto.Repository, error) {
+func (d *Backend) ImportRepository(_ context.Context, name string, user *domain.User, remote string, opts domain.RepoOptions) (*domain.Repo, error) {
 	name = utils.SanitizeRepo(name)
 	if err := utils.ValidateRepo(name); err != nil {
 		return nil, err
 	}
 
-	rp := filepath.Join(d.repoPath(name))
+	rp := d.repoPath(name)
 
 	tid := "import:" + name
 	if d.manager.Exists(tid) {
@@ -97,14 +92,14 @@ func (d *Backend) ImportRepository(_ context.Context, name string, user proto.Us
 	}
 
 	if _, err := os.Stat(rp); err == nil || os.IsExist(err) {
-		return nil, proto.ErrRepoExist
+		return nil, domain.ErrRepoExist
 	}
 
 	done := make(chan error, 1)
-	repoc := make(chan proto.Repository, 1)
+	repoc := make(chan *domain.Repo, 1)
 	d.logger.Info("importing repository", "name", name, "remote", remote, "path", rp)
 	d.manager.Add(tid, func(ctx context.Context) (err error) {
-		ctx = proto.WithUserContext(ctx, user)
+		ctx = domain.WithUserContext(ctx, user)
 
 		copts := git.CloneOptions{
 			Bare:   true,
@@ -115,8 +110,8 @@ func (d *Backend) ImportRepository(_ context.Context, name string, user proto.Us
 				Context: ctx,
 				Envs: []string{
 					fmt.Sprintf(`GIT_SSH_COMMAND=ssh -o UserKnownHostsFile="%s" -o StrictHostKeyChecking=no -i "%s"`,
-						filepath.Join(d.cfg.DataPath, "ssh", "known_hosts"),
-						d.cfg.SSH.ClientKeyPath,
+						d.cfg.SSHKnownHostsPath,
+						d.cfg.SSHClientKeyPath,
 					),
 				},
 			},
@@ -146,7 +141,7 @@ func (d *Backend) ImportRepository(_ context.Context, name string, user proto.Us
 			}
 		}()
 
-		rr, err := r.Open()
+		rr, err := d.OpenRepo(name)
 		if err != nil {
 			d.logger.Error("failed to open repository", "err", err, "path", rp)
 			return err
@@ -184,7 +179,7 @@ func (d *Backend) ImportRepository(_ context.Context, name string, user proto.Us
 			return nil
 		}
 
-		if err := StoreRepoMissingLFSObjects(ctx, r, d.db, d.store, client); err != nil {
+		if err := d.StoreRepoMissingLFSObjects(ctx, name, client); err != nil {
 			d.logger.Error("failed to store missing lfs objects", "err", err, "path", rp)
 			return err
 		}
@@ -201,13 +196,11 @@ func (d *Backend) ImportRepository(_ context.Context, name string, user proto.Us
 }
 
 // DeleteRepository deletes a repository.
-//
-// It implements backend.Backend.
 func (d *Backend) DeleteRepository(ctx context.Context, name string) error {
 	name = utils.SanitizeRepo(name)
-	rp := filepath.Join(d.repoPath(name))
+	rp := d.repoPath(name)
 
-	user := proto.UserFromContext(ctx)
+	user := domain.UserFromContext(ctx)
 	r, err := d.Repository(ctx, name)
 	if err != nil {
 		return err
@@ -220,28 +213,28 @@ func (d *Backend) DeleteRepository(ctx context.Context, name string) error {
 		return err
 	}
 
-	if err := d.db.TransactionContext(ctx, func(tx *db.Tx) error {
+	if err := d.store.Transaction(ctx, func(tx domain.Store) error {
 		// Delete repo from cache
 		defer d.cache.Delete(name)
 
-		repom, dberr := d.store.GetRepoByName(ctx, tx, name)
+		repo, dberr := tx.GetRepoByName(ctx, name)
 		_, ferr := os.Stat(rp)
 		if dberr != nil && ferr != nil {
-			return proto.ErrRepoNotFound
+			return domain.ErrRepoNotFound
 		}
 
 		// If the repo is not in the database but the directory exists, remove it
 		if dberr != nil && ferr == nil {
 			return os.RemoveAll(rp)
 		} else if dberr != nil {
-			return db.WrapError(dberr)
+			return dberr
 		}
 
-		repoID := strconv.FormatInt(repom.ID, 10)
-		strg := storage.NewLocalStorage(filepath.Join(d.cfg.DataPath, "lfs", repoID))
-		objs, err := d.store.GetLFSObjectsByName(ctx, tx, name)
+		repoID := strconv.FormatInt(repo.ID, 10)
+		strg := storage.NewLocalStorage(filepath.Join(d.cfg.DataDir, "lfs", repoID))
+		objs, err := tx.ListLFSObjectsByName(ctx, name)
 		if err != nil {
-			return db.WrapError(err)
+			return err
 		}
 
 		for _, obj := range objs {
@@ -256,17 +249,17 @@ func (d *Backend) DeleteRepository(ctx context.Context, name string) error {
 			}
 		}
 
-		if err := d.store.DeleteRepoByName(ctx, tx, name); err != nil {
-			return db.WrapError(err)
+		if err := tx.DeleteRepoByName(ctx, name); err != nil {
+			return err
 		}
 
 		return os.RemoveAll(rp)
 	}); err != nil {
-		if errors.Is(err, db.ErrRecordNotFound) {
-			return proto.ErrRepoNotFound
+		if errors.Is(err, domain.ErrNotFound) {
+			return domain.ErrRepoNotFound
 		}
 
-		return db.WrapError(err)
+		return err
 	}
 
 	return webhook.SendEvent(ctx, wh)
@@ -274,34 +267,26 @@ func (d *Backend) DeleteRepository(ctx context.Context, name string) error {
 
 // DeleteUserRepositories deletes all user repositories.
 func (d *Backend) DeleteUserRepositories(ctx context.Context, username string) error {
-	if err := d.db.TransactionContext(ctx, func(tx *db.Tx) error {
-		user, err := d.store.FindUserByUsername(ctx, tx, username)
-		if err != nil {
+	user, err := d.store.GetUserByUsername(ctx, username)
+	if err != nil {
+		return err
+	}
+
+	repos, err := d.store.ListReposByUserID(ctx, user.ID)
+	if err != nil {
+		return err
+	}
+
+	for _, repo := range repos {
+		if err := d.DeleteRepository(ctx, repo.Name); err != nil {
 			return err
 		}
-
-		repos, err := d.store.GetUserRepos(ctx, tx, user.ID)
-		if err != nil {
-			return err
-		}
-
-		for _, repo := range repos {
-			if err := d.DeleteRepository(ctx, repo.Name); err != nil {
-				return err
-			}
-		}
-
-		return nil
-	}); err != nil {
-		return db.WrapError(err)
 	}
 
 	return nil
 }
 
 // RenameRepository renames a repository.
-//
-// It implements backend.Backend.
 func (d *Backend) RenameRepository(ctx context.Context, oldName string, newName string) error {
 	oldName = utils.SanitizeRepo(oldName)
 	if err := utils.ValidateRepo(oldName); err != nil {
@@ -317,21 +302,27 @@ func (d *Backend) RenameRepository(ctx context.Context, oldName string, newName 
 		return nil
 	}
 
-	op := filepath.Join(d.repoPath(oldName))
-	np := filepath.Join(d.repoPath(newName))
+	op := d.repoPath(oldName)
+	np := d.repoPath(newName)
 	if _, err := os.Stat(op); err != nil {
-		return proto.ErrRepoNotFound
+		return domain.ErrRepoNotFound
 	}
 
 	if _, err := os.Stat(np); err == nil {
-		return proto.ErrRepoExist
+		return domain.ErrRepoExist
 	}
 
-	if err := d.db.TransactionContext(ctx, func(tx *db.Tx) error {
+	if err := d.store.Transaction(ctx, func(tx domain.Store) error {
 		// Delete cache
 		defer d.cache.Delete(oldName)
 
-		if err := d.store.SetRepoNameByName(ctx, tx, oldName, newName); err != nil {
+		// Get old repo, update name
+		repo, err := tx.GetRepoByName(ctx, oldName)
+		if err != nil {
+			return err
+		}
+		repo.Name = newName
+		if err := tx.UpdateRepo(ctx, repo); err != nil {
 			return err
 		}
 
@@ -342,10 +333,10 @@ func (d *Backend) RenameRepository(ctx context.Context, oldName string, newName 
 
 		return os.Rename(op, np)
 	}); err != nil {
-		return db.WrapError(err)
+		return err
 	}
 
-	user := proto.UserFromContext(ctx)
+	user := domain.UserFromContext(ctx)
 	repo, err := d.Repository(ctx, newName)
 	if err != nil {
 		return err
@@ -359,224 +350,168 @@ func (d *Backend) RenameRepository(ctx context.Context, oldName string, newName 
 	return webhook.SendEvent(ctx, wh)
 }
 
-// Repositories returns a list of repositories per page.
-//
-// It implements backend.Backend.
-func (d *Backend) Repositories(ctx context.Context) ([]proto.Repository, error) {
-	repos := make([]proto.Repository, 0)
-
-	if err := d.db.TransactionContext(ctx, func(tx *db.Tx) error {
-		ms, err := d.store.GetAllRepos(ctx, tx)
-		if err != nil {
-			return err
-		}
-
-		for _, m := range ms {
-			r := &repo{
-				name: m.Name,
-				path: filepath.Join(d.repoPath(m.Name)),
-				repo: m,
-			}
-
-			// Cache repositories
-			d.cache.Set(m.Name, r)
-
-			repos = append(repos, r)
-		}
-
-		return nil
-	}); err != nil {
-		return nil, db.WrapError(err)
+// Repositories returns a list of all repositories.
+func (d *Backend) Repositories(ctx context.Context) ([]*domain.Repo, error) {
+	ms, err := d.store.ListRepos(ctx)
+	if err != nil {
+		return nil, err
 	}
 
-	return repos, nil
+	for _, m := range ms {
+		d.cache.Set(m.Name, m)
+	}
+
+	return ms, nil
 }
 
 // Repository returns a repository by name.
-//
-// It implements backend.Backend.
-func (d *Backend) Repository(ctx context.Context, name string) (proto.Repository, error) {
-	var m models.Repo
+func (d *Backend) Repository(ctx context.Context, name string) (*domain.Repo, error) {
 	name = utils.SanitizeRepo(name)
 
 	if r, ok := d.cache.Get(name); ok && r != nil {
 		return r, nil
 	}
 
-	rp := filepath.Join(d.repoPath(name))
+	rp := d.repoPath(name)
 	if _, err := os.Stat(rp); err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
 			d.logger.Errorf("failed to stat repository path: %v", err)
 		}
-		return nil, proto.ErrRepoNotFound
+		return nil, domain.ErrRepoNotFound
 	}
 
-	if err := d.db.TransactionContext(ctx, func(tx *db.Tx) error {
-		var err error
-		m, err = d.store.GetRepoByName(ctx, tx, name)
-		return db.WrapError(err)
-	}); err != nil {
-		if errors.Is(err, db.ErrRecordNotFound) {
-			return nil, proto.ErrRepoNotFound
+	m, err := d.store.GetRepoByName(ctx, name)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			return nil, domain.ErrRepoNotFound
 		}
-		return nil, db.WrapError(err)
+		return nil, err
 	}
 
-	r := &repo{
-		name: name,
-		path: rp,
-		repo: m,
-	}
+	// Compute UpdatedAt from filesystem/git data
+	m.UpdatedAt = d.computeUpdatedAt(name, m.UpdatedAt)
 
 	// Add to cache
-	d.cache.Set(name, r)
+	d.cache.Set(name, m)
 
-	return r, nil
+	return m, nil
+}
+
+// OpenRepo opens the git repository for the given repo name.
+func (d *Backend) OpenRepo(name string) (*git.Repository, error) {
+	return git.Open(d.repoPath(name))
 }
 
 // Description returns the description of a repository.
-//
-// It implements backend.Backend.
 func (d *Backend) Description(ctx context.Context, name string) (string, error) {
 	name = utils.SanitizeRepo(name)
-	var desc string
-	if err := d.db.TransactionContext(ctx, func(tx *db.Tx) error {
-		var err error
-		desc, err = d.store.GetRepoDescriptionByName(ctx, tx, name)
-		return err
-	}); err != nil {
-		return "", db.WrapError(err)
+	repo, err := d.store.GetRepoByName(ctx, name)
+	if err != nil {
+		return "", err
 	}
-
-	return desc, nil
+	return repo.Description, nil
 }
 
 // IsMirror returns true if the repository is a mirror.
-//
-// It implements backend.Backend.
 func (d *Backend) IsMirror(ctx context.Context, name string) (bool, error) {
 	name = utils.SanitizeRepo(name)
-	var mirror bool
-	if err := d.db.TransactionContext(ctx, func(tx *db.Tx) error {
-		var err error
-		mirror, err = d.store.GetRepoIsMirrorByName(ctx, tx, name)
-		return err
-	}); err != nil {
-		return false, db.WrapError(err)
+	repo, err := d.store.GetRepoByName(ctx, name)
+	if err != nil {
+		return false, err
 	}
-	return mirror, nil
+	return repo.Mirror, nil
 }
 
 // IsPrivate returns true if the repository is private.
-//
-// It implements backend.Backend.
 func (d *Backend) IsPrivate(ctx context.Context, name string) (bool, error) {
 	name = utils.SanitizeRepo(name)
-	var private bool
-	if err := d.db.TransactionContext(ctx, func(tx *db.Tx) error {
-		var err error
-		private, err = d.store.GetRepoIsPrivateByName(ctx, tx, name)
-		return err
-	}); err != nil {
-		return false, db.WrapError(err)
+	repo, err := d.store.GetRepoByName(ctx, name)
+	if err != nil {
+		return false, err
 	}
-
-	return private, nil
+	return repo.Private, nil
 }
 
 // IsHidden returns true if the repository is hidden.
-//
-// It implements backend.Backend.
 func (d *Backend) IsHidden(ctx context.Context, name string) (bool, error) {
 	name = utils.SanitizeRepo(name)
-	var hidden bool
-	if err := d.db.TransactionContext(ctx, func(tx *db.Tx) error {
-		var err error
-		hidden, err = d.store.GetRepoIsHiddenByName(ctx, tx, name)
-		return err
-	}); err != nil {
-		return false, db.WrapError(err)
+	repo, err := d.store.GetRepoByName(ctx, name)
+	if err != nil {
+		return false, err
 	}
-
-	return hidden, nil
+	return repo.Hidden, nil
 }
 
 // ProjectName returns the project name of a repository.
-//
-// It implements backend.Backend.
 func (d *Backend) ProjectName(ctx context.Context, name string) (string, error) {
 	name = utils.SanitizeRepo(name)
-	var pname string
-	if err := d.db.TransactionContext(ctx, func(tx *db.Tx) error {
-		var err error
-		pname, err = d.store.GetRepoProjectNameByName(ctx, tx, name)
-		return err
-	}); err != nil {
-		return "", db.WrapError(err)
+	repo, err := d.store.GetRepoByName(ctx, name)
+	if err != nil {
+		return "", err
 	}
-
-	return pname, nil
+	return repo.ProjectName, nil
 }
 
 // SetHidden sets the hidden flag of a repository.
-//
-// It implements backend.Backend.
 func (d *Backend) SetHidden(ctx context.Context, name string, hidden bool) error {
 	name = utils.SanitizeRepo(name)
-
-	// Delete cache
 	d.cache.Delete(name)
 
-	return db.WrapError(d.db.TransactionContext(ctx, func(tx *db.Tx) error {
-		return d.store.SetRepoIsHiddenByName(ctx, tx, name, hidden)
-	}))
+	return d.store.Transaction(ctx, func(tx domain.Store) error {
+		repo, err := tx.GetRepoByName(ctx, name)
+		if err != nil {
+			return err
+		}
+		repo.Hidden = hidden
+		return tx.UpdateRepo(ctx, repo)
+	})
 }
 
 // SetDescription sets the description of a repository.
-//
-// It implements backend.Backend.
 func (d *Backend) SetDescription(ctx context.Context, name string, desc string) error {
 	name = utils.SanitizeRepo(name)
 	desc = utils.Sanitize(desc)
-	rp := filepath.Join(d.repoPath(name))
-
-	// Delete cache
+	rp := d.repoPath(name)
 	d.cache.Delete(name)
 
-	return d.db.TransactionContext(ctx, func(tx *db.Tx) error {
+	return d.store.Transaction(ctx, func(tx domain.Store) error {
 		if err := os.WriteFile(filepath.Join(rp, "description"), []byte(desc), fs.ModePerm); err != nil {
 			d.logger.Error("failed to write description", "repo", name, "err", err)
 			return err
 		}
 
-		return d.store.SetRepoDescriptionByName(ctx, tx, name, desc)
+		repo, err := tx.GetRepoByName(ctx, name)
+		if err != nil {
+			return err
+		}
+		repo.Description = desc
+		return tx.UpdateRepo(ctx, repo)
 	})
 }
 
 // SetPrivate sets the private flag of a repository.
-//
-// It implements backend.Backend.
 func (d *Backend) SetPrivate(ctx context.Context, name string, private bool) error {
 	name = utils.SanitizeRepo(name)
-
-	// Delete cache
 	d.cache.Delete(name)
 
-	if err := db.WrapError(
-		d.db.TransactionContext(ctx, func(tx *db.Tx) error {
-			return d.store.SetRepoIsPrivateByName(ctx, tx, name, private)
-		}),
-	); err != nil {
+	if err := d.store.Transaction(ctx, func(tx domain.Store) error {
+		repo, err := tx.GetRepoByName(ctx, name)
+		if err != nil {
+			return err
+		}
+		repo.Private = private
+		return tx.UpdateRepo(ctx, repo)
+	}); err != nil {
 		return err
 	}
 
-	user := proto.UserFromContext(ctx)
+	user := domain.UserFromContext(ctx)
 	repo, err := d.Repository(ctx, name)
 	if err != nil {
 		return err
 	}
 
-	if repo.IsPrivate() != !private {
+	if repo.Private != !private {
 		wh, err := webhook.NewRepositoryEvent(ctx, user, repo, webhook.RepositoryEventActionVisibilityChange)
 		if err != nil {
 			return err
@@ -591,120 +526,41 @@ func (d *Backend) SetPrivate(ctx context.Context, name string, private bool) err
 }
 
 // SetProjectName sets the project name of a repository.
-//
-// It implements backend.Backend.
-func (d *Backend) SetProjectName(ctx context.Context, repo string, name string) error {
-	repo = utils.SanitizeRepo(repo)
+func (d *Backend) SetProjectName(ctx context.Context, repoName string, name string) error {
+	repoName = utils.SanitizeRepo(repoName)
 	name = utils.Sanitize(name)
+	d.cache.Delete(repoName)
 
-	// Delete cache
-	d.cache.Delete(repo)
-
-	return db.WrapError(
-		d.db.TransactionContext(ctx, func(tx *db.Tx) error {
-			return d.store.SetRepoProjectNameByName(ctx, tx, repo, name)
-		}),
-	)
+	return d.store.Transaction(ctx, func(tx domain.Store) error {
+		repo, err := tx.GetRepoByName(ctx, repoName)
+		if err != nil {
+			return err
+		}
+		repo.ProjectName = name
+		return tx.UpdateRepo(ctx, repo)
+	})
 }
 
 // repoPath returns the path to a repository.
 func (d *Backend) repoPath(name string) string {
 	name = utils.SanitizeRepo(name)
 	rn := strings.ReplaceAll(name, "/", string(os.PathSeparator))
-	return filepath.Join(filepath.Join(d.cfg.DataPath, "repos"), rn+".git")
+	return filepath.Join(d.cfg.RepoDir, rn+".git")
 }
 
-var _ proto.Repository = (*repo)(nil)
+// computeUpdatedAt returns the best "updated at" time for a repository.
+// It checks last-modified file, then latest commit, then falls back to the DB value.
+func (d *Backend) computeUpdatedAt(name string, fallback time.Time) time.Time {
+	rp := d.repoPath(name)
 
-// repo is a Git repository with metadata stored in a SQLite database.
-type repo struct {
-	name string
-	path string
-	repo models.Repo
-}
-
-// ID returns the repository's ID.
-//
-// It implements proto.Repository.
-func (r *repo) ID() int64 {
-	return r.repo.ID
-}
-
-// UserID returns the repository's owner's user ID.
-// If the repository is not owned by anyone, it returns 0.
-//
-// It implements proto.Repository.
-func (r *repo) UserID() int64 {
-	if r.repo.UserID.Valid {
-		return r.repo.UserID.Int64
-	}
-	return 0
-}
-
-// Description returns the repository's description.
-//
-// It implements backend.Repository.
-func (r *repo) Description() string {
-	return r.repo.Description
-}
-
-// IsMirror returns whether the repository is a mirror.
-//
-// It implements backend.Repository.
-func (r *repo) IsMirror() bool {
-	return r.repo.Mirror
-}
-
-// IsPrivate returns whether the repository is private.
-//
-// It implements backend.Repository.
-func (r *repo) IsPrivate() bool {
-	return r.repo.Private
-}
-
-// Name returns the repository's name.
-//
-// It implements backend.Repository.
-func (r *repo) Name() string {
-	return r.name
-}
-
-// Open opens the repository.
-//
-// It implements backend.Repository.
-func (r *repo) Open() (*git.Repository, error) {
-	return git.Open(r.path)
-}
-
-// ProjectName returns the repository's project name.
-//
-// It implements backend.Repository.
-func (r *repo) ProjectName() string {
-	return r.repo.ProjectName
-}
-
-// IsHidden returns whether the repository is hidden.
-//
-// It implements backend.Repository.
-func (r *repo) IsHidden() bool {
-	return r.repo.Hidden
-}
-
-// CreatedAt returns the repository's creation time.
-func (r *repo) CreatedAt() time.Time {
-	return r.repo.CreatedAt
-}
-
-// UpdatedAt returns the repository's last update time.
-func (r *repo) UpdatedAt() time.Time {
 	// Try to read the last modified time from the info directory.
-	if t, err := readOneline(filepath.Join(r.path, "info", "last-modified")); err == nil {
+	if t, err := readOneline(filepath.Join(rp, "info", "last-modified")); err == nil {
 		if t, err := time.Parse(time.RFC3339, t); err == nil {
 			return t
 		}
 	}
 
-	rr, err := git.Open(r.path)
+	rr, err := git.Open(rp)
 	if err == nil {
 		t, err := rr.LatestCommitTime()
 		if err == nil {
@@ -712,11 +568,13 @@ func (r *repo) UpdatedAt() time.Time {
 		}
 	}
 
-	return r.repo.UpdatedAt
+	return fallback
 }
 
-func (r *repo) writeLastModified(t time.Time) error {
-	fp := filepath.Join(r.path, "info", "last-modified")
+// writeLastModified writes the last-modified time to the repository's info directory.
+func (d *Backend) writeLastModified(name string, t time.Time) error {
+	rp := d.repoPath(name)
+	fp := filepath.Join(rp, "info", "last-modified")
 	if err := os.MkdirAll(filepath.Dir(fp), os.ModePerm); err != nil {
 		return err
 	}

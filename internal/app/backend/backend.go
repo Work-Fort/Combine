@@ -4,32 +4,38 @@ import (
 	"context"
 
 	"charm.land/log/v2"
-	"github.com/Work-Fort/Combine/pkg/config"
-	"github.com/Work-Fort/Combine/pkg/db"
-	"github.com/Work-Fort/Combine/pkg/store"
+	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/Work-Fort/Combine/internal/infra/task"
+	"golang.org/x/crypto/ssh"
 )
+
+// BackendConfig holds the configuration for the backend.
+type BackendConfig struct {
+	RepoDir            string
+	DataDir            string
+	AdminKeys          []ssh.PublicKey
+	SSHClientKeyPath   string
+	SSHKnownHostsPath string
+}
 
 // Backend is the Combine backend that handles users, repositories, and
 // server settings management and operations.
 type Backend struct {
-	ctx     context.Context
-	cfg     *config.Config
-	db      *db.DB
-	store   store.Store
+	store   domain.Store
+	cfg     BackendConfig
 	logger  *log.Logger
 	cache   *cache
 	manager *task.Manager
 }
 
 // New returns a new Combine backend.
-func New(ctx context.Context, cfg *config.Config, db *db.DB, st store.Store) *Backend {
-	logger := log.FromContext(ctx).WithPrefix("backend")
+func New(ctx context.Context, store domain.Store, cfg BackendConfig, logger *log.Logger) *Backend {
+	if logger == nil {
+		logger = log.FromContext(ctx).WithPrefix("backend")
+	}
 	b := &Backend{
-		ctx:     ctx,
+		store:   store,
 		cfg:     cfg,
-		db:      db,
-		store:   st,
 		logger:  logger,
 		manager: task.NewManager(ctx),
 	}
@@ -39,4 +45,14 @@ func New(ctx context.Context, cfg *config.Config, db *db.DB, st store.Store) *Ba
 	b.cache = cache
 
 	return b
+}
+
+// Store returns the backend's store.
+func (d *Backend) Store() domain.Store {
+	return d.store
+}
+
+// Config returns the backend's config.
+func (d *Backend) Config() BackendConfig {
+	return d.cfg
 }

@@ -8,12 +8,10 @@ import (
 	"charm.land/log/v2"
 	"charm.land/wish/v2"
 	"github.com/Work-Fort/Combine/internal/app/backend"
+	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/Work-Fort/Combine/pkg/config"
-	"github.com/Work-Fort/Combine/pkg/db"
-	"github.com/Work-Fort/Combine/pkg/proto"
 	"github.com/Work-Fort/Combine/internal/infra/ssh/cmd"
 	"github.com/Work-Fort/Combine/internal/infra/sshutils"
-	"github.com/Work-Fort/Combine/pkg/store"
 	"github.com/charmbracelet/ssh"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -27,10 +25,6 @@ var ErrPermissionDenied = fmt.Errorf("permission denied")
 // AuthenticationMiddleware handles authentication.
 func AuthenticationMiddleware(sh ssh.Handler) ssh.Handler {
 	return func(s ssh.Session) {
-		// XXX: The authentication key is set in the context but gossh doesn't
-		// validate the authentication. We need to verify that the _last_ key
-		// that was approved is the one that's being used.
-
 		ctx := s.Context()
 		be := backend.FromContext(ctx)
 
@@ -38,8 +32,6 @@ func AuthenticationMiddleware(sh ssh.Handler) ssh.Handler {
 		perms := s.Permissions().Permissions
 		pk := s.PublicKey()
 		if pk != nil {
-			// There is no public key stored in the context, public-key auth
-			// was never requested, skip
 			if perms == nil {
 				wish.Fatalln(s, ErrPermissionDenied)
 				return
@@ -48,7 +40,6 @@ func AuthenticationMiddleware(sh ssh.Handler) ssh.Handler {
 			pkFp = gossh.FingerprintSHA256(pk)
 		}
 
-		// Check if the key is the same as the one we have in context
 		fp := perms.Extensions["pubkey-fp"]
 		if fp != "" && fp != pkFp {
 			wish.Fatalln(s, ErrPermissionDenied)
@@ -63,25 +54,24 @@ func AuthenticationMiddleware(sh ssh.Handler) ssh.Handler {
 		}
 
 		// Set the auth'd user, or anon, in the context
-		var user proto.User
+		var user *domain.User
 		if pk != nil {
 			user, _ = be.UserByPublicKey(ctx, pk)
 		}
-		ctx.SetValue(proto.ContextKeyUser, user)
+		ctx.SetValue(domain.UserContextKey(), user)
 
 		sh(s)
 	}
 }
 
-// ContextMiddleware adds the config, backend, and logger to the session context.
-func ContextMiddleware(cfg *config.Config, dbx *db.DB, datastore store.Store, be *backend.Backend, logger *log.Logger) func(ssh.Handler) ssh.Handler {
+// ContextMiddleware adds the config, backend, store, and logger to the session context.
+func ContextMiddleware(cfg *config.Config, datastore domain.Store, be *backend.Backend, logger *log.Logger) func(ssh.Handler) ssh.Handler {
 	return func(sh ssh.Handler) ssh.Handler {
 		return func(s ssh.Session) {
 			ctx := s.Context()
 			ctx.SetValue(sshutils.ContextKeySession, s)
 			ctx.SetValue(config.ContextKey, cfg)
-			ctx.SetValue(db.ContextKey, dbx)
-			ctx.SetValue(store.ContextKey, datastore)
+			ctx.SetValue(domain.StoreContextKey(), datastore)
 			ctx.SetValue(backend.ContextKey, be)
 			ctx.SetValue(log.ContextKey, logger.WithPrefix("ssh"))
 			sh(s)
@@ -97,7 +87,6 @@ var cliCommandCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 }, []string{"command"})
 
 // CommandMiddleware handles git commands and CLI commands.
-// This middleware must be run after the ContextMiddleware.
 func CommandMiddleware(sh ssh.Handler) ssh.Handler {
 	return func(s ssh.Session) {
 		_, _, ptyReq := s.Pty()
@@ -140,7 +129,6 @@ func CommandMiddleware(sh ssh.Handler) ssh.Handler {
 
 		rootCmd.SetArgs(args)
 		if len(args) == 0 {
-			// otherwise it'll default to os.Args, which is not what we want.
 			rootCmd.SetArgs([]string{"--help"})
 		}
 		rootCmd.SetIn(s)
@@ -164,7 +152,7 @@ func LoggingMiddleware(sh ssh.Handler) ssh.Handler {
 		hpk := sshutils.MarshalAuthorizedKey(s.PublicKey())
 		ptyReq, _, isPty := s.Pty()
 		addr := s.RemoteAddr().String()
-		user := proto.UserFromContext(ctx)
+		user := domain.UserFromContext(ctx)
 		logArgs := []interface{}{
 			"addr",
 			addr,
@@ -175,7 +163,7 @@ func LoggingMiddleware(sh ssh.Handler) ssh.Handler {
 		if user != nil {
 			logArgs = append([]interface{}{
 				"username",
-				user.Username(),
+				user.Username,
 			}, logArgs...)
 		}
 

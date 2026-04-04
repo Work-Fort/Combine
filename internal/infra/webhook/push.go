@@ -5,11 +5,9 @@ import (
 	"fmt"
 
 	gitm "github.com/aymanbagabas/git-module"
+	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/Work-Fort/Combine/internal/infra/git"
 	"github.com/Work-Fort/Combine/pkg/config"
-	"github.com/Work-Fort/Combine/pkg/db"
-	"github.com/Work-Fort/Combine/pkg/proto"
-	"github.com/Work-Fort/Combine/pkg/store"
 )
 
 // PushEvent is a push event.
@@ -27,7 +25,7 @@ type PushEvent struct {
 }
 
 // NewPushEvent sends a push event.
-func NewPushEvent(ctx context.Context, user proto.User, repo proto.Repository, ref, before, after string) (PushEvent, error) {
+func NewPushEvent(ctx context.Context, user *domain.User, repo *domain.Repo, ref, before, after string) (PushEvent, error) {
 	event := EventPush
 
 	payload := PushEvent{
@@ -37,43 +35,43 @@ func NewPushEvent(ctx context.Context, user proto.User, repo proto.Repository, r
 		Common: Common{
 			EventType: event,
 			Repository: Repository{
-				ID:          repo.ID(),
-				Name:        repo.Name(),
-				Description: repo.Description(),
-				ProjectName: repo.ProjectName(),
-				Private:     repo.IsPrivate(),
-				CreatedAt:   repo.CreatedAt(),
-				UpdatedAt:   repo.UpdatedAt(),
+				ID:          repo.ID,
+				Name:        repo.Name,
+				Description: repo.Description,
+				ProjectName: repo.ProjectName,
+				Private:     repo.Private,
+				CreatedAt:   repo.CreatedAt,
+				UpdatedAt:   repo.UpdatedAt,
 			},
 			Sender: User{
-				ID:       user.ID(),
-				Username: user.Username(),
+				ID:       user.ID,
+				Username: user.Username,
 			},
 		},
 	}
 
 	cfg := config.FromContext(ctx)
-	payload.Repository.HTTPURL = repoURL(cfg.HTTP.PublicURL, repo.Name())
-	payload.Repository.SSHURL = repoURL(cfg.SSH.PublicURL, repo.Name())
+	payload.Repository.HTTPURL = repoURL(cfg.HTTP.PublicURL, repo.Name)
+	payload.Repository.SSHURL = repoURL(cfg.SSH.PublicURL, repo.Name)
 
 	// Find repo owner.
-	dbx := db.FromContext(ctx)
-	datastore := store.FromContext(ctx)
-	owner, err := datastore.GetUserByID(ctx, dbx, repo.UserID())
-	if err != nil {
-		return PushEvent{}, db.WrapError(err)
+	if repo.UserID != nil {
+		datastore := domain.StoreFromContext(ctx)
+		owner, err := datastore.GetUserByID(ctx, *repo.UserID)
+		if err != nil {
+			return PushEvent{}, err
+		}
+		payload.Repository.Owner.ID = owner.ID
+		payload.Repository.Owner.Username = owner.Username
 	}
 
-	payload.Repository.Owner.ID = owner.ID
-	payload.Repository.Owner.Username = owner.Username
-
 	// Find commits.
-	r, err := repo.Open()
+	r, err := openRepoFromContext(ctx, repo.Name)
 	if err != nil {
 		return PushEvent{}, err
 	}
 
-	payload.Repository.DefaultBranch, _ = getDefaultBranch(repo)
+	payload.Repository.DefaultBranch, _ = getDefaultBranch(ctx, repo)
 
 	rev := after
 	if !git.IsZeroHash(before) {

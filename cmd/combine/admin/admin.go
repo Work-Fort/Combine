@@ -22,7 +22,7 @@ var (
 		Use:                "migrate",
 		Short:              "Migrate the database to the latest version",
 		PersistentPreRunE:  cmd.InitBackendContext,
-		PersistentPostRunE: cmd.CloseDBContext,
+		PersistentPostRunE: cmd.CloseStoreContext,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 			db := db.FromContext(ctx)
@@ -38,7 +38,7 @@ var (
 		Use:                "rollback",
 		Short:              "Rollback the database to the previous version",
 		PersistentPreRunE:  cmd.InitBackendContext,
-		PersistentPostRunE: cmd.CloseDBContext,
+		PersistentPostRunE: cmd.CloseStoreContext,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 			db := db.FromContext(ctx)
@@ -54,7 +54,7 @@ var (
 		Use:                "sync-hooks",
 		Short:              "Update repository hooks",
 		PersistentPreRunE:  cmd.InitBackendContext,
-		PersistentPostRunE: cmd.CloseDBContext,
+		PersistentPostRunE: cmd.CloseStoreContext,
 		RunE: func(c *cobra.Command, _ []string) error {
 			ctx := c.Context()
 			cfg := config.FromContext(ctx)

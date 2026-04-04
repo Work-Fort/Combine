@@ -7,12 +7,11 @@ import (
 	"time"
 
 	"charm.land/log/v2"
-	"github.com/Work-Fort/Combine/pkg/access"
 	"github.com/Work-Fort/Combine/internal/app/backend"
+	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/Work-Fort/Combine/pkg/config"
 	"github.com/Work-Fort/Combine/internal/infra/gitutil"
 	"github.com/Work-Fort/Combine/internal/infra/lfs"
-	"github.com/Work-Fort/Combine/pkg/proto"
 	"github.com/Work-Fort/Combine/internal/infra/sshutils"
 	"github.com/Work-Fort/Combine/internal/infra/utils"
 	"github.com/prometheus/client_golang/prometheus"
@@ -175,10 +174,9 @@ func gitRunE(cmd *cobra.Command, args []string) error {
 	name := utils.SanitizeRepo(args[0])
 	pk := sshutils.PublicKeyFromContext(ctx)
 	ak := sshutils.MarshalAuthorizedKey(pk)
-	user := proto.UserFromContext(ctx)
+	user := domain.UserFromContext(ctx)
 	accessLevel := be.AccessLevelForUser(ctx, name, user)
 	// git bare repositories should end in ".git"
-	// https://git-scm.com/docs/gitrepository-layout
 	repoDir := name + ".git"
 	reposDir := filepath.Join(cfg.DataPath, "repos")
 	if err := git.EnsureWithin(reposDir, repoDir); err != nil {
@@ -187,7 +185,7 @@ func gitRunE(cmd *cobra.Command, args []string) error {
 
 	// Set repo in context
 	repo, _ := be.Repository(ctx, name)
-	ctx = proto.WithRepositoryContext(ctx, repo)
+	ctx = domain.WithRepoContext(ctx, repo)
 
 	// Environment variables to pass down to git hooks.
 	envs := []string{
@@ -199,7 +197,7 @@ func gitRunE(cmd *cobra.Command, args []string) error {
 
 	if user != nil {
 		envs = append(envs,
-			"COMBINE_USERNAME="+user.Username(),
+			"COMBINE_USERNAME="+user.Username,
 		)
 	}
 
@@ -234,11 +232,11 @@ func gitRunE(cmd *cobra.Command, args []string) error {
 		defer func() {
 			receivePackSeconds.WithLabelValues(name).Add(time.Since(start).Seconds())
 		}()
-		if accessLevel < access.ReadWriteAccess {
+		if accessLevel < domain.ReadWriteAccess {
 			return git.ErrNotAuthed
 		}
 		if repo == nil {
-			if _, err := be.CreateRepository(ctx, name, user, proto.RepositoryOptions{Private: false}); err != nil {
+			if _, err := be.CreateRepository(ctx, name, user, domain.RepoOptions{Private: false}); err != nil {
 				log.Errorf("failed to create repo: %s", err)
 				return err
 			}
@@ -249,7 +247,6 @@ func gitRunE(cmd *cobra.Command, args []string) error {
 			logger.Error("failed to handle git service", "service", service, "err", err, "repo", name)
 			defer func() {
 				if repo == nil {
-					// If the repo was created, but the request failed, delete it.
 					be.DeleteRepository(ctx, name) //nolint: errcheck
 				}
 			}()
@@ -266,7 +263,7 @@ func gitRunE(cmd *cobra.Command, args []string) error {
 
 		return nil
 	case git.UploadPackService, git.UploadArchiveService:
-		if accessLevel < access.ReadOnlyAccess {
+		if accessLevel < domain.ReadOnlyAccess {
 			return git.ErrNotAuthed
 		}
 
@@ -300,11 +297,11 @@ func gitRunE(cmd *cobra.Command, args []string) error {
 		operation := args[1]
 		switch operation {
 		case lfs.OperationDownload:
-			if accessLevel < access.ReadOnlyAccess {
+			if accessLevel < domain.ReadOnlyAccess {
 				return git.ErrNotAuthed
 			}
 		case lfs.OperationUpload:
-			if accessLevel < access.ReadWriteAccess {
+			if accessLevel < domain.ReadWriteAccess {
 				return git.ErrNotAuthed
 			}
 		default:

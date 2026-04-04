@@ -5,25 +5,18 @@ import (
 	"errors"
 	"time"
 
-	"github.com/Work-Fort/Combine/pkg/db"
-	"github.com/Work-Fort/Combine/pkg/proto"
+	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/Work-Fort/Combine/internal/infra/utils"
 )
 
 // CreateAccessToken creates an access token for user.
-func (b *Backend) CreateAccessToken(ctx context.Context, user proto.User, name string, expiresAt time.Time) (string, error) {
+func (b *Backend) CreateAccessToken(ctx context.Context, user *domain.User, name string, expiresAt time.Time) (string, error) {
 	token := GenerateToken()
 	tokenHash := HashToken(token)
 	name = utils.Sanitize(name)
 
-	if err := b.db.TransactionContext(ctx, func(tx *db.Tx) error {
-		_, err := b.store.CreateAccessToken(ctx, tx, name, user.ID(), tokenHash, expiresAt)
-		if err != nil {
-			return db.WrapError(err)
-		}
-
-		return nil
-	}); err != nil {
+	_, err := b.store.CreateAccessToken(ctx, name, user.ID, tokenHash, expiresAt)
+	if err != nil {
 		return "", err
 	}
 
@@ -31,21 +24,18 @@ func (b *Backend) CreateAccessToken(ctx context.Context, user proto.User, name s
 }
 
 // DeleteAccessToken deletes an access token for a user.
-func (b *Backend) DeleteAccessToken(ctx context.Context, user proto.User, id int64) error {
-	err := b.db.TransactionContext(ctx, func(tx *db.Tx) error {
-		_, err := b.store.GetAccessToken(ctx, tx, id)
-		if err != nil {
-			return db.WrapError(err)
-		}
-
-		if err := b.store.DeleteAccessTokenForUser(ctx, tx, user.ID(), id); err != nil {
-			return db.WrapError(err)
-		}
-		return nil
-	})
+func (b *Backend) DeleteAccessToken(ctx context.Context, user *domain.User, id int64) error {
+	_, err := b.store.GetAccessToken(ctx, id)
 	if err != nil {
-		if errors.Is(err, db.ErrRecordNotFound) {
-			return proto.ErrTokenNotFound
+		if errors.Is(err, domain.ErrNotFound) {
+			return domain.ErrTokenNotFound
+		}
+		return err
+	}
+
+	if err := b.store.DeleteAccessTokenForUser(ctx, user.ID, id); err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			return domain.ErrTokenNotFound
 		}
 		return err
 	}
@@ -54,27 +44,6 @@ func (b *Backend) DeleteAccessToken(ctx context.Context, user proto.User, id int
 }
 
 // ListAccessTokens lists access tokens for a user.
-func (b *Backend) ListAccessTokens(ctx context.Context, user proto.User) ([]proto.AccessToken, error) {
-	accessTokens, err := b.store.GetAccessTokensByUserID(ctx, b.db, user.ID())
-	if err != nil {
-		return nil, db.WrapError(err)
-	}
-
-	var tokens []proto.AccessToken
-	for _, t := range accessTokens {
-		token := proto.AccessToken{
-			ID:        t.ID,
-			Name:      t.Name,
-			TokenHash: t.Token,
-			UserID:    t.UserID,
-			CreatedAt: t.CreatedAt,
-		}
-		if t.ExpiresAt.Valid {
-			token.ExpiresAt = t.ExpiresAt.Time
-		}
-
-		tokens = append(tokens, token)
-	}
-
-	return tokens, nil
+func (b *Backend) ListAccessTokens(ctx context.Context, user *domain.User) ([]*domain.AccessToken, error) {
+	return b.store.ListAccessTokensByUserID(ctx, user.ID)
 }

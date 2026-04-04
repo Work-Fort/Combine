@@ -3,10 +3,7 @@ package webhook
 import (
 	"context"
 
-	"github.com/Work-Fort/Combine/pkg/access"
-	"github.com/Work-Fort/Combine/pkg/db"
-	"github.com/Work-Fort/Combine/pkg/proto"
-	"github.com/Work-Fort/Combine/pkg/store"
+	"github.com/Work-Fort/Combine/internal/domain"
 )
 
 // CollaboratorEvent is a collaborator event.
@@ -16,7 +13,7 @@ type CollaboratorEvent struct {
 	// Action is the collaborator event action.
 	Action CollaboratorEventAction `json:"action" url:"action"`
 	// AccessLevel is the collaborator access level.
-	AccessLevel access.AccessLevel `json:"access_level" url:"access_level"`
+	AccessLevel domain.AccessLevel `json:"access_level" url:"access_level"`
 	// Collaborator is the collaborator.
 	Collaborator User `json:"collaborator" url:"collaborator"`
 }
@@ -32,7 +29,7 @@ const (
 )
 
 // NewCollaboratorEvent sends a collaborator event.
-func NewCollaboratorEvent(ctx context.Context, user proto.User, repo proto.Repository, collabUsername string, action CollaboratorEventAction) (CollaboratorEvent, error) {
+func NewCollaboratorEvent(ctx context.Context, user *domain.User, repo *domain.Repo, collabUsername string, action CollaboratorEventAction) (CollaboratorEvent, error) {
 	event := EventCollaborator
 
 	payload := CollaboratorEvent{
@@ -40,34 +37,35 @@ func NewCollaboratorEvent(ctx context.Context, user proto.User, repo proto.Repos
 		Common: Common{
 			EventType: event,
 			Repository: Repository{
-				ID:          repo.ID(),
-				Name:        repo.Name(),
-				Description: repo.Description(),
-				ProjectName: repo.ProjectName(),
-				Private:     repo.IsPrivate(),
-				CreatedAt:   repo.CreatedAt(),
-				UpdatedAt:   repo.UpdatedAt(),
+				ID:          repo.ID,
+				Name:        repo.Name,
+				Description: repo.Description,
+				ProjectName: repo.ProjectName,
+				Private:     repo.Private,
+				CreatedAt:   repo.CreatedAt,
+				UpdatedAt:   repo.UpdatedAt,
 			},
 			Sender: User{
-				ID:       user.ID(),
-				Username: user.Username(),
+				ID:       user.ID,
+				Username: user.Username,
 			},
 		},
 	}
 
 	// Find repo owner.
-	dbx := db.FromContext(ctx)
-	datastore := store.FromContext(ctx)
-	owner, err := datastore.GetUserByID(ctx, dbx, repo.UserID())
-	if err != nil {
-		return CollaboratorEvent{}, db.WrapError(err)
+	datastore := domain.StoreFromContext(ctx)
+	if repo.UserID != nil {
+		owner, err := datastore.GetUserByID(ctx, *repo.UserID)
+		if err != nil {
+			return CollaboratorEvent{}, err
+		}
+		payload.Repository.Owner.ID = owner.ID
+		payload.Repository.Owner.Username = owner.Username
 	}
 
-	payload.Repository.Owner.ID = owner.ID
-	payload.Repository.Owner.Username = owner.Username
-	payload.Repository.DefaultBranch, _ = getDefaultBranch(repo)
+	payload.Repository.DefaultBranch, _ = getDefaultBranch(ctx, repo)
 
-	collab, err := datastore.GetCollabByUsernameAndRepo(ctx, dbx, collabUsername, repo.Name())
+	collab, err := datastore.GetCollabByUsernameAndRepo(ctx, collabUsername, repo.Name)
 	if err != nil {
 		return CollaboratorEvent{}, err
 	}

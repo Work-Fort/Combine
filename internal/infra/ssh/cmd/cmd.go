@@ -7,10 +7,9 @@ import (
 	"text/template"
 	"unicode"
 
-	"github.com/Work-Fort/Combine/pkg/access"
 	"github.com/Work-Fort/Combine/internal/app/backend"
+	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/Work-Fort/Combine/pkg/config"
-	"github.com/Work-Fort/Combine/pkg/proto"
 	"github.com/Work-Fort/Combine/internal/infra/sshutils"
 	"github.com/Work-Fort/Combine/internal/infra/utils"
 	"github.com/charmbracelet/ssh"
@@ -118,10 +117,10 @@ func checkIfReadable(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
 	be := backend.FromContext(ctx)
 	rn := utils.SanitizeRepo(repo)
-	user := proto.UserFromContext(ctx)
+	user := domain.UserFromContext(ctx)
 	auth := be.AccessLevelForUser(cmd.Context(), rn, user)
-	if auth < access.ReadOnlyAccess {
-		return proto.ErrRepoNotFound
+	if auth < domain.ReadOnlyAccess {
+		return domain.ErrRepoNotFound
 	}
 	return nil
 }
@@ -152,21 +151,21 @@ func checkIfAdmin(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	user := proto.UserFromContext(ctx)
+	user := domain.UserFromContext(ctx)
 	if user == nil {
-		return proto.ErrUnauthorized
+		return domain.ErrUnauthorized
 	}
 
-	if user.IsAdmin() {
+	if user.Admin {
 		return nil
 	}
 
 	auth := be.AccessLevelForUser(cmd.Context(), rn, user)
-	if auth >= access.AdminAccess {
+	if auth >= domain.AdminAccess {
 		return nil
 	}
 
-	return proto.ErrUnauthorized
+	return domain.ErrUnauthorized
 }
 
 func checkIfCollab(cmd *cobra.Command, args []string) error {
@@ -178,10 +177,10 @@ func checkIfCollab(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
 	be := backend.FromContext(ctx)
 	rn := utils.SanitizeRepo(repo)
-	user := proto.UserFromContext(ctx)
+	user := domain.UserFromContext(ctx)
 	auth := be.AccessLevelForUser(cmd.Context(), rn, user)
-	if auth < access.ReadWriteAccess {
-		return proto.ErrUnauthorized
+	if auth < domain.ReadWriteAccess {
+		return domain.ErrUnauthorized
 	}
 	return nil
 }

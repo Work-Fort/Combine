@@ -11,9 +11,7 @@ import (
 	"github.com/Work-Fort/Combine/internal/infra/git"
 	"github.com/Work-Fort/Combine/internal/app/backend"
 	"github.com/Work-Fort/Combine/pkg/config"
-	"github.com/Work-Fort/Combine/pkg/db"
 	"github.com/Work-Fort/Combine/internal/infra/lfs"
-	"github.com/Work-Fort/Combine/pkg/store"
 	"github.com/Work-Fort/Combine/internal/infra/sync"
 )
 
@@ -37,8 +35,6 @@ func (m mirrorPull) Func(ctx context.Context) func() {
 	cfg := config.FromContext(ctx)
 	logger := log.FromContext(ctx).WithPrefix("jobs.mirror")
 	b := backend.FromContext(ctx)
-	dbx := db.FromContext(ctx)
-	datastore := store.FromContext(ctx)
 	return func() {
 		repos, err := b.Repositories(ctx)
 		if err != nil {
@@ -53,17 +49,15 @@ func (m mirrorPull) Func(ctx context.Context) func() {
 
 		logger.Debug("updating mirror repos")
 		for _, repo := range repos {
-			if repo.IsMirror() {
-				r, err := repo.Open()
+			if repo.Mirror {
+				r, err := b.OpenRepo(repo.Name)
 				if err != nil {
-					logger.Error("error opening repository", "repo", repo.Name(), "err", err)
+					logger.Error("error opening repository", "repo", repo.Name, "err", err)
 					continue
 				}
 
-				name := repo.Name()
+				name := repo.Name
 				wq.Add(name, func() {
-					repo := repo
-
 					cmds := []string{
 						"fetch --prune",         // fetch prune before updating remote
 						"remote update --prune", // update remote and prune remote refs
@@ -93,8 +87,6 @@ func (m mirrorPull) Func(ctx context.Context) func() {
 
 						lfsEndpoint := rcfg.Section("lfs").Option("url")
 						if lfsEndpoint == "" {
-							// If there is no LFS url defined, means the repo
-							// doesn't use LFS and we can skip it.
 							return
 						}
 
@@ -110,7 +102,7 @@ func (m mirrorPull) Func(ctx context.Context) func() {
 							return
 						}
 
-						if err := backend.StoreRepoMissingLFSObjects(ctx, repo, dbx, datastore, client); err != nil {
+						if err := b.StoreRepoMissingLFSObjects(ctx, name, client); err != nil {
 							logger.Error("failed to store missing lfs objects", "err", err, "path", r.Path)
 							return
 						}

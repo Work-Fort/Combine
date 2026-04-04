@@ -13,33 +13,25 @@ import (
 
 	"charm.land/log/v2"
 	"github.com/charmbracelet/git-lfs-transfer/transfer"
+	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/Work-Fort/Combine/pkg/config"
-	"github.com/Work-Fort/Combine/pkg/db"
-	"github.com/Work-Fort/Combine/pkg/db/models"
 	"github.com/Work-Fort/Combine/internal/infra/lfs"
-	"github.com/Work-Fort/Combine/pkg/proto"
 	"github.com/Work-Fort/Combine/internal/infra/storage"
-	"github.com/Work-Fort/Combine/pkg/store"
 )
 
 // lfsTransfer implements transfer.Backend.
 type lfsTransfer struct {
 	ctx     context.Context
 	cfg     *config.Config
-	dbx     *db.DB
-	store   store.Store
+	store   domain.Store
 	logger  *log.Logger
 	storage storage.Storage
-	repo    proto.Repository
+	repo    *domain.Repo
 }
 
 var _ transfer.Backend = &lfsTransfer{}
 
 // LFSTransfer is a Git LFS transfer service handler.
-// ctx is expected to have proto.User, *backend.Backend, *log.Logger,
-// *config.Config, *db.DB, and store.Store.
-// The first arg in cmd.Args should be the repo path.
-// The second arg in cmd.Args should be the LFS operation (download or upload).
 func LFSTransfer(ctx context.Context, cmd ServiceCommand) error {
 	if len(cmd.Args) < 2 {
 		return errors.New("missing args")
@@ -52,10 +44,10 @@ func LFSTransfer(ctx context.Context, cmd ServiceCommand) error {
 
 	logger := log.FromContext(ctx).WithPrefix("lfs-transfer")
 	handler := transfer.NewPktline(cmd.Stdin, cmd.Stdout, &lfsLogger{logger})
-	repo := proto.RepositoryFromContext(ctx)
+	repo := domain.RepoFromContext(ctx)
 	if repo == nil {
 		logger.Error("no repository in context")
-		return proto.ErrRepoNotFound
+		return domain.ErrRepoNotFound
 	}
 
 	// Advertise capabilities.
@@ -71,13 +63,13 @@ func LFSTransfer(ctx context.Context, cmd ServiceCommand) error {
 		return err
 	}
 
-	repoID := strconv.FormatInt(repo.ID(), 10)
+	repoID := strconv.FormatInt(repo.ID, 10)
 	cfg := config.FromContext(ctx)
+	datastore := domain.StoreFromContext(ctx)
 	processor := transfer.NewProcessor(handler, &lfsTransfer{
 		ctx:     ctx,
 		cfg:     cfg,
-		dbx:     db.FromContext(ctx),
-		store:   store.FromContext(ctx),
+		store:   datastore,
 		logger:  logger,
 		storage: storage.NewLocalStorage(filepath.Join(cfg.DataPath, "lfs", repoID)),
 		repo:    repo,
@@ -89,9 +81,9 @@ func LFSTransfer(ctx context.Context, cmd ServiceCommand) error {
 // Batch implements transfer.Backend.
 func (t *lfsTransfer) Batch(_ string, pointers []transfer.BatchItem, _ transfer.Args) ([]transfer.BatchItem, error) {
 	for i := range pointers {
-		obj, err := t.store.GetLFSObjectByOid(t.ctx, t.dbx, t.repo.ID(), pointers[i].Oid)
-		if err != nil && !errors.Is(err, db.ErrRecordNotFound) {
-			return pointers, db.WrapError(err)
+		obj, err := t.store.GetLFSObjectByOid(t.ctx, t.repo.ID, pointers[i].Oid)
+		if err != nil && !errors.Is(err, domain.ErrNotFound) {
+			return pointers, err
 		}
 
 		pointers[i].Present, err = t.storage.Exists(path.Join("objects", pointers[i].RelativePath()))
@@ -99,9 +91,9 @@ func (t *lfsTransfer) Batch(_ string, pointers []transfer.BatchItem, _ transfer.
 			return pointers, err
 		}
 
-		if pointers[i].Present && obj.ID == 0 {
-			if err := t.store.CreateLFSObject(t.ctx, t.dbx, t.repo.ID(), pointers[i].Oid, pointers[i].Size); err != nil {
-				return pointers, db.WrapError(err)
+		if pointers[i].Present && (obj == nil || obj.ID == 0) {
+			if err := t.store.CreateLFSObject(t.ctx, t.repo.ID, pointers[i].Oid, pointers[i].Size); err != nil {
+				return pointers, err
 			}
 		}
 	}
@@ -112,7 +104,7 @@ func (t *lfsTransfer) Batch(_ string, pointers []transfer.BatchItem, _ transfer.
 // Download implements transfer.Backend.
 func (t *lfsTransfer) Download(oid string, _ transfer.Args) (io.ReadCloser, int64, error) {
 	cfg := config.FromContext(t.ctx)
-	repoID := strconv.FormatInt(t.repo.ID(), 10)
+	repoID := strconv.FormatInt(t.repo.ID, 10)
 	strg := storage.NewLocalStorage(filepath.Join(cfg.DataPath, "lfs", repoID))
 	pointer := transfer.Pointer{Oid: oid}
 	obj, err := strg.Open(path.Join("objects", pointer.RelativePath()))
@@ -162,14 +154,14 @@ func (t *lfsTransfer) Upload(oid string, size int64, r io.Reader, _ transfer.Arg
 		pointer.Size = written
 	}
 
-	if err := t.store.CreateLFSObject(t.ctx, t.dbx, t.repo.ID(), pointer.Oid, pointer.Size); err != nil {
-		return db.WrapError(err)
+	if err := t.store.CreateLFSObject(t.ctx, t.repo.ID, pointer.Oid, pointer.Size); err != nil {
+		return err
 	}
 
 	expectedPath := path.Join("objects", pointer.RelativePath())
 	if err := t.storage.Rename(obj.Name(), expectedPath); err != nil {
 		t.logger.Errorf("error renaming object: %v", err)
-		_ = t.store.DeleteLFSObjectByOid(t.ctx, t.dbx, t.repo.ID(), pointer.Oid)
+		_ = t.store.DeleteLFSObjectByOid(t.ctx, t.repo.ID, pointer.Oid)
 		return err
 	}
 
@@ -178,9 +170,9 @@ func (t *lfsTransfer) Upload(oid string, size int64, r io.Reader, _ transfer.Arg
 
 // Verify implements transfer.Backend.
 func (t *lfsTransfer) Verify(oid string, size int64, _ transfer.Args) (transfer.Status, error) {
-	obj, err := t.store.GetLFSObjectByOid(t.ctx, t.dbx, t.repo.ID(), oid)
+	obj, err := t.store.GetLFSObjectByOid(t.ctx, t.repo.ID, oid)
 	if err != nil {
-		if errors.Is(err, db.ErrRecordNotFound) {
+		if errors.Is(err, domain.ErrNotFound) {
 			return transfer.NewStatus(transfer.StatusNotFound, "object not found"), nil
 		}
 		t.logger.Errorf("error getting object: %v", err)
@@ -198,16 +190,16 @@ func (t *lfsTransfer) Verify(oid string, size int64, _ transfer.Args) (transfer.
 type lfsLockBackend struct {
 	*lfsTransfer
 	args map[string]string
-	user proto.User
+	user *domain.User
 }
 
 var _ transfer.LockBackend = (*lfsLockBackend)(nil)
 
 // LockBackend implements transfer.Backend.
 func (t *lfsTransfer) LockBackend(args transfer.Args) transfer.LockBackend {
-	user := proto.UserFromContext(t.ctx)
+	user := domain.UserFromContext(t.ctx)
 	if user == nil {
-		t.logger.Errorf("no user in context while creating lock backend, repo %s", t.repo.Name())
+		t.logger.Errorf("no user in context while creating lock backend, repo %s", t.repo.Name)
 		return nil
 	}
 
@@ -217,22 +209,27 @@ func (t *lfsTransfer) LockBackend(args transfer.Args) transfer.LockBackend {
 // Create implements transfer.LockBackend.
 func (l *lfsLockBackend) Create(path string, refname string) (transfer.Lock, error) {
 	var lock LFSLock
-	if err := l.dbx.TransactionContext(l.ctx, func(tx *db.Tx) error {
-		if err := l.store.CreateLFSLockForUser(l.ctx, tx, l.repo.ID(), l.user.ID(), path, refname); err != nil {
-			return db.WrapError(err)
+
+	if err := l.store.Transaction(l.ctx, func(tx domain.Store) error {
+		if err := tx.CreateLFSLockForUser(l.ctx, l.repo.ID, l.user.ID, path, refname); err != nil {
+			return err
 		}
 
 		var err error
-		lock.lock, err = l.store.GetLFSLockForUserPath(l.ctx, tx, l.repo.ID(), l.user.ID(), path)
+		lk, err := tx.GetLFSLockForUserPath(l.ctx, l.repo.ID, l.user.ID, path)
 		if err != nil {
-			return db.WrapError(err)
+			return err
 		}
+		lock.lock = lk
 
-		lock.owner, err = l.store.GetUserByID(l.ctx, tx, lock.lock.UserID)
-		return db.WrapError(err)
+		owner, err := tx.GetUserByID(l.ctx, lk.UserID)
+		if err != nil {
+			return err
+		}
+		lock.owner = owner
+		return nil
 	}); err != nil {
-		// Return conflict (409) if the lock already exists.
-		if errors.Is(err, db.ErrDuplicateKey) {
+		if errors.Is(err, domain.ErrAlreadyExists) {
 			return nil, transfer.ErrConflict
 		}
 		l.logger.Errorf("error creating lock: %v", err)
@@ -252,17 +249,21 @@ func (l *lfsLockBackend) FromID(id string) (transfer.Lock, error) {
 		return nil, err
 	}
 
-	if err := l.dbx.TransactionContext(l.ctx, func(tx *db.Tx) error {
-		var err error
-		lock.lock, err = l.store.GetLFSLockForUserByID(l.ctx, tx, l.repo.ID(), l.user.ID(), iid)
+	if err := l.store.Transaction(l.ctx, func(tx domain.Store) error {
+		lk, err := tx.GetLFSLockForUserByID(l.ctx, l.repo.ID, l.user.ID, iid)
 		if err != nil {
-			return db.WrapError(err)
+			return err
 		}
+		lock.lock = lk
 
-		lock.owner, err = l.store.GetUserByID(l.ctx, tx, lock.lock.UserID)
-		return db.WrapError(err)
+		owner, err := tx.GetUserByID(l.ctx, lk.UserID)
+		if err != nil {
+			return err
+		}
+		lock.owner = owner
+		return nil
 	}); err != nil {
-		if errors.Is(err, db.ErrRecordNotFound) {
+		if errors.Is(err, domain.ErrNotFound) {
 			return nil, transfer.ErrNotFound
 		}
 		l.logger.Errorf("error getting lock: %v", err)
@@ -278,17 +279,21 @@ func (l *lfsLockBackend) FromID(id string) (transfer.Lock, error) {
 func (l *lfsLockBackend) FromPath(path string) (transfer.Lock, error) {
 	var lock LFSLock
 
-	if err := l.dbx.TransactionContext(l.ctx, func(tx *db.Tx) error {
-		var err error
-		lock.lock, err = l.store.GetLFSLockForUserPath(l.ctx, tx, l.repo.ID(), l.user.ID(), path)
+	if err := l.store.Transaction(l.ctx, func(tx domain.Store) error {
+		lk, err := tx.GetLFSLockForUserPath(l.ctx, l.repo.ID, l.user.ID, path)
 		if err != nil {
-			return db.WrapError(err)
+			return err
 		}
+		lock.lock = lk
 
-		lock.owner, err = l.store.GetUserByID(l.ctx, tx, lock.lock.UserID)
-		return db.WrapError(err)
+		owner, err := tx.GetUserByID(l.ctx, lk.UserID)
+		if err != nil {
+			return err
+		}
+		lock.owner = owner
+		return nil
 	}); err != nil {
-		if errors.Is(err, db.ErrRecordNotFound) {
+		if errors.Is(err, domain.ErrNotFound) {
 			return nil, transfer.ErrNotFound
 		}
 		l.logger.Errorf("error getting lock: %v", err)
@@ -316,24 +321,24 @@ func (l *lfsLockBackend) Range(cursor string, limit int, fn func(transfer.Lock) 
 		limit = 100
 	}
 
-	if err := l.dbx.TransactionContext(l.ctx, func(tx *db.Tx) error {
+	if err := l.store.Transaction(l.ctx, func(tx domain.Store) error {
 		l.logger.Debug("getting locks", "limit", limit, "page", page)
-		mlocks, err := l.store.GetLFSLocks(l.ctx, tx, l.repo.ID(), page, limit)
+		mlocks, err := tx.ListLFSLocks(l.ctx, l.repo.ID, page, limit)
 		if err != nil {
-			return db.WrapError(err)
+			return err
 		}
 
 		if len(mlocks) == limit {
 			nextCursor = strconv.Itoa(page + 1)
 		}
 
-		users := make(map[int64]models.User, 0)
+		users := make(map[int64]*domain.User, 0)
 		for _, mlock := range mlocks {
 			owner, ok := users[mlock.UserID]
 			if !ok {
-				owner, err = l.store.GetUserByID(l.ctx, tx, mlock.UserID)
+				owner, err = tx.GetUserByID(l.ctx, mlock.UserID)
 				if err != nil {
-					return db.WrapError(err)
+					return err
 				}
 
 				users[mlock.UserID] = owner
@@ -363,13 +368,11 @@ func (l *lfsLockBackend) Unlock(lock transfer.Lock) error {
 		return err
 	}
 
-	err = l.dbx.TransactionContext(l.ctx, func(tx *db.Tx) error {
-		return db.WrapError(
-			l.store.DeleteLFSLockForUserByID(l.ctx, tx, l.repo.ID(), l.user.ID(), id),
-		)
+	err = l.store.Transaction(l.ctx, func(tx domain.Store) error {
+		return tx.DeleteLFSLockForUserByID(l.ctx, l.repo.ID, l.user.ID, id)
 	})
 	if err != nil {
-		if errors.Is(err, db.ErrRecordNotFound) {
+		if errors.Is(err, domain.ErrNotFound) {
 			return transfer.ErrNotFound
 		}
 		l.logger.Error("error unlocking lock", "err", err)
@@ -382,8 +385,8 @@ func (l *lfsLockBackend) Unlock(lock transfer.Lock) error {
 // LFSLock is a Git LFS lock object.
 // It implements transfer.Lock.
 type LFSLock struct {
-	lock    models.LFSLock
-	owner   models.User
+	lock    *domain.LFSLock
+	owner   *domain.User
 	backend *lfsLockBackend
 }
 

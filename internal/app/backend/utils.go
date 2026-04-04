@@ -1,14 +1,14 @@
 package backend
 
 import (
+	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/Work-Fort/Combine/internal/infra/git"
-	"github.com/Work-Fort/Combine/pkg/proto"
 )
 
 // LatestFile returns the contents of the latest file at the specified path in
 // the repository and its file path.
-func LatestFile(r proto.Repository, ref *git.Reference, pattern string) (string, string, error) {
-	repo, err := r.Open()
+func LatestFile(d *Backend, r *domain.Repo, ref *git.Reference, pattern string) (string, string, error) {
+	repo, err := d.OpenRepo(r.Name)
 	if err != nil {
 		return "", "", err
 	}
@@ -16,8 +16,8 @@ func LatestFile(r proto.Repository, ref *git.Reference, pattern string) (string,
 }
 
 // Readme returns the repository's README.
-func Readme(r proto.Repository, ref *git.Reference) (readme string, path string, err error) {
+func Readme(d *Backend, r *domain.Repo, ref *git.Reference) (readme string, path string, err error) {
 	pattern := "[rR][eE][aA][dD][mM][eE]*"
-	readme, path, err = LatestFile(r, ref, pattern)
+	readme, path, err = LatestFile(d, r, ref, pattern)
 	return
 }

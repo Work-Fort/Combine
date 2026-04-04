@@ -16,12 +16,11 @@ import (
 
 	"charm.land/log/v2"
 	gitb "github.com/Work-Fort/Combine/internal/infra/git"
-	"github.com/Work-Fort/Combine/pkg/access"
 	"github.com/Work-Fort/Combine/internal/app/backend"
+	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/Work-Fort/Combine/pkg/config"
 	"github.com/Work-Fort/Combine/internal/infra/gitutil"
 	"github.com/Work-Fort/Combine/internal/infra/lfs"
-	"github.com/Work-Fort/Combine/pkg/proto"
 	"github.com/Work-Fort/Combine/internal/infra/utils"
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus"
@@ -118,9 +117,6 @@ func GitController(_ context.Context, r *mux.Router) {
 
 var gitRoutes = []GitRoute{
 	// Git services
-	// These routes don't handle authentication/authorization.
-	// This is handled through wrapping the handlers for each route.
-	// See below (withAccess).
 	{
 		method:  []string{http.MethodPost},
 		handler: serviceRpc,
@@ -163,7 +159,6 @@ var gitRoutes = []GitRoute{
 		path:    "/info/lfs/objects/batch",
 	},
 	{
-		// Git LFS basic object handler
 		method:  []string{http.MethodGet, http.MethodPut},
 		handler: serviceLfsBasic,
 		path:    "/info/lfs/objects/basic/{oid:[0-9a-f]{64}$}",
@@ -205,18 +200,16 @@ func withAccess(next http.Handler) http.HandlerFunc {
 		be := backend.FromContext(ctx)
 
 		// Store repository in context
-		// We're not checking for errors here because we want to allow
-		// repo creation on the fly.
 		repoName := mux.Vars(r)["repo"]
 		repo, _ := be.Repository(ctx, repoName)
-		ctx = proto.WithRepositoryContext(ctx, repo)
+		ctx = domain.WithRepoContext(ctx, repo)
 		r = r.WithContext(ctx)
 
 		user, err := authenticate(r)
 		if err != nil {
 			switch {
 			case errors.Is(err, ErrInvalidToken):
-			case errors.Is(err, proto.ErrUserNotFound):
+			case errors.Is(err, domain.ErrUserNotFound):
 			default:
 				logger.Error("failed to authenticate", "err", err)
 			}
@@ -229,11 +222,11 @@ func withAccess(next http.Handler) http.HandlerFunc {
 		}
 
 		// Store user in context
-		ctx = proto.WithUserContext(ctx, user)
+		ctx = domain.WithUserContext(ctx, user)
 		r = r.WithContext(ctx)
 
 		if user != nil {
-			logger.Debug("authenticated", "username", user.Username())
+			logger.Debug("authenticated", "username", user.Username)
 		}
 
 		service := git.Service(mux.Vars(r)["service"])
@@ -243,18 +236,14 @@ func withAccess(next http.Handler) http.HandlerFunc {
 		}
 
 		accessLevel := be.AccessLevelForUser(ctx, repoName, user)
-		ctx = access.WithContext(ctx, accessLevel)
+		ctx = domain.WithAccessLevelContext(ctx, accessLevel)
 		r = r.WithContext(ctx)
 
 		file := mux.Vars(r)["file"]
 
-		// We only allow these services to proceed any other services should return 403
-		// - git-upload-pack
-		// - git-receive-pack
-		// - git-lfs
 		switch {
 		case service == git.ReceivePackService:
-			if accessLevel < access.ReadWriteAccess {
+			if accessLevel < domain.ReadWriteAccess {
 				askCredentials(w, r)
 				renderUnauthorized(w, r)
 				return
@@ -262,28 +251,26 @@ func withAccess(next http.Handler) http.HandlerFunc {
 
 			// Create the repo if it doesn't exist.
 			if repo == nil {
-				repo, err = be.CreateRepository(ctx, repoName, user, proto.RepositoryOptions{})
+				repo, err = be.CreateRepository(ctx, repoName, user, domain.RepoOptions{})
 				if err != nil {
 					logger.Error("failed to create repository", "repo", repoName, "err", err)
 					renderInternalServerError(w, r)
 					return
 				}
 
-				ctx = proto.WithRepositoryContext(ctx, repo)
+				ctx = domain.WithRepoContext(ctx, repo)
 				r = r.WithContext(ctx)
 			}
 
 			fallthrough
 		case service == git.UploadPackService || service == git.UploadArchiveService:
 			if repo == nil {
-				// If the repo doesn't exist, return 404
 				renderNotFound(w, r)
 				return
 			} else if errors.Is(err, ErrInvalidToken) || errors.Is(err, ErrInvalidPassword) {
-				// return 403 when bad credentials are provided
 				renderForbidden(w, r)
 				return
-			} else if accessLevel < access.ReadOnlyAccess {
+			} else if accessLevel < domain.ReadOnlyAccess {
 				askCredentials(w, r)
 				renderUnauthorized(w, r)
 				return
@@ -300,12 +287,9 @@ func withAccess(next http.Handler) http.HandlerFunc {
 			case strings.HasPrefix(file, "info/lfs/locks"):
 				switch {
 				case strings.HasSuffix(file, "lfs/locks"), strings.HasSuffix(file, "/unlock") && r.Method == http.MethodPost:
-					// Create lock, list locks, and delete lock require write access
 					fallthrough
 				case strings.HasSuffix(file, "lfs/locks/verify"):
-					// Locks verify requires write access
-					// https://github.com/git-lfs/git-lfs/blob/main/docs/api/locking.md#unauthorized-response-2
-					if accessLevel < access.ReadWriteAccess {
+					if accessLevel < domain.ReadWriteAccess {
 						renderJSON(w, http.StatusForbidden, lfs.ErrorResponse{
 							Message: "write access required",
 						})
@@ -315,21 +299,18 @@ func withAccess(next http.Handler) http.HandlerFunc {
 			case strings.HasPrefix(file, "info/lfs/objects/basic"):
 				switch r.Method {
 				case http.MethodPut:
-					// Basic upload
-					if accessLevel < access.ReadWriteAccess {
+					if accessLevel < domain.ReadWriteAccess {
 						renderJSON(w, http.StatusForbidden, lfs.ErrorResponse{
 							Message: "write access required",
 						})
 						return
 					}
 				case http.MethodGet:
-					// Basic download
 				case http.MethodPost:
-					// Basic verify
 				}
 			}
 
-			if accessLevel < access.ReadOnlyAccess {
+			if accessLevel < domain.ReadOnlyAccess {
 				if repo == nil {
 					renderJSON(w, http.StatusNotFound, lfs.ErrorResponse{
 						Message: "repository not found",
@@ -349,15 +330,12 @@ func withAccess(next http.Handler) http.HandlerFunc {
 		}
 
 		switch {
-		case r.URL.Query().Get("go-get") == "1" && accessLevel >= access.ReadOnlyAccess:
-			// Allow go-get requests to passthrough.
+		case r.URL.Query().Get("go-get") == "1" && accessLevel >= domain.ReadOnlyAccess:
 			break
 		case errors.Is(err, ErrInvalidToken), errors.Is(err, ErrInvalidPassword):
-			// return 403 when bad credentials are provided
 			renderForbidden(w, r)
 			return
-		case repo == nil, accessLevel < access.ReadOnlyAccess:
-			// Don't hint that the repo exists if the user doesn't have access
+		case repo == nil, accessLevel < domain.ReadOnlyAccess:
 			renderNotFound(w, r)
 			return
 		}
@@ -401,7 +379,7 @@ func serviceRpc(w http.ResponseWriter, r *http.Request) {
 		cmd.Args = append(cmd.Args, "--stateless-rpc")
 	}
 
-	user := proto.UserFromContext(ctx)
+	user := domain.UserFromContext(ctx)
 	cmd.Env = cfg.Environ()
 	cmd.Env = append(cmd.Env, []string{
 		"COMBINE_REPO_NAME=" + repoName,
@@ -410,7 +388,7 @@ func serviceRpc(w http.ResponseWriter, r *http.Request) {
 	}...)
 	if user != nil {
 		cmd.Env = append(cmd.Env, []string{
-			"COMBINE_USERNAME=" + user.Username(),
+			"COMBINE_USERNAME=" + user.Username,
 		}...)
 	}
 	if len(version) != 0 {
@@ -453,7 +431,6 @@ func serviceRpc(w http.ResponseWriter, r *http.Request) {
 }
 
 // Handle buffered output
-// Useful when using proxies
 type flushResponseWriter struct {
 	http.ResponseWriter
 }
@@ -476,7 +453,6 @@ func (f *flushResponseWriter) ReadFrom(r io.Reader) (int64, error) {
 			return n, err
 		}
 		n += int64(nRead)
-		// ResponseWriter must support http.Flusher to handle buffered output.
 		if err := flusher.Flush(); err != nil {
 			return n, fmt.Errorf("%w: error while flush", err)
 		}
@@ -503,7 +479,7 @@ func getInfoRefs(w http.ResponseWriter, r *http.Request) {
 			Args:   []string{"--stateless-rpc", "--advertise-refs"},
 		}
 
-		user := proto.UserFromContext(ctx)
+		user := domain.UserFromContext(ctx)
 		cmd.Env = cfg.Environ()
 		cmd.Env = append(cmd.Env, []string{
 			"COMBINE_REPO_NAME=" + repoName,
@@ -512,7 +488,7 @@ func getInfoRefs(w http.ResponseWriter, r *http.Request) {
 		}...)
 		if user != nil {
 			cmd.Env = append(cmd.Env, []string{
-				"COMBINE_USERNAME=" + user.Username(),
+				"COMBINE_USERNAME=" + user.Username,
 			}...)
 		}
 		if len(protocol) != 0 {

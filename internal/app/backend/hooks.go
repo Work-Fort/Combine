@@ -6,9 +6,9 @@ import (
 	"os"
 	"sync"
 
+	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/Work-Fort/Combine/internal/infra/git"
 	"github.com/Work-Fort/Combine/internal/infra/hooks"
-	"github.com/Work-Fort/Combine/pkg/proto"
 	"github.com/Work-Fort/Combine/internal/infra/sshutils"
 	"github.com/Work-Fort/Combine/internal/infra/webhook"
 )
@@ -36,7 +36,7 @@ func (d *Backend) Update(ctx context.Context, _ io.Writer, _ io.Writer, repo str
 	d.logger.Debug("update hook called", "repo", repo, "arg", arg)
 
 	// Find user
-	var user proto.User
+	var user *domain.User
 	if pubkey := os.Getenv("COMBINE_PUBLIC_KEY"); pubkey != "" {
 		pk, _, err := sshutils.ParseAuthorizedKey(pubkey)
 		if err != nil {
@@ -69,7 +69,6 @@ func (d *Backend) Update(ctx context.Context, _ io.Writer, _ io.Writer, repo str
 	}
 
 	// TODO: run this async
-	// This would probably need something like an RPC server to communicate with the hook process.
 	if git.IsZeroHash(arg.OldSha) || git.IsZeroHash(arg.NewSha) {
 		wh, err := webhook.NewBranchTagEvent(ctx, user, r, arg.RefName, arg.OldSha, arg.NewSha)
 		if err != nil {
@@ -98,7 +97,7 @@ func (d *Backend) PostUpdate(ctx context.Context, _ io.Writer, _ io.Writer, repo
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := populateLastModified(ctx, d, repo); err != nil {
+		if err := d.populateLastModified(ctx, repo); err != nil {
 			d.logger.Error("error populating last-modified", "repo", repo, "err", err)
 			return
 		}
@@ -107,20 +106,13 @@ func (d *Backend) PostUpdate(ctx context.Context, _ io.Writer, _ io.Writer, repo
 	wg.Wait()
 }
 
-func populateLastModified(ctx context.Context, d *Backend, name string) error {
-	var rr *repo
-	_rr, err := d.Repository(ctx, name)
+func (d *Backend) populateLastModified(ctx context.Context, name string) error {
+	_, err := d.Repository(ctx, name)
 	if err != nil {
 		return err
 	}
 
-	if r, ok := _rr.(*repo); ok {
-		rr = r
-	} else {
-		return proto.ErrRepoNotFound
-	}
-
-	r, err := rr.Open()
+	r, err := d.OpenRepo(name)
 	if err != nil {
 		return err
 	}
@@ -130,5 +122,5 @@ func populateLastModified(ctx context.Context, d *Backend, name string) error {
 		return err
 	}
 
-	return rr.writeLastModified(c)
+	return d.writeLastModified(name, c)
 }

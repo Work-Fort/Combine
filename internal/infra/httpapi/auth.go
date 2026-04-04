@@ -9,20 +9,20 @@ import (
 
 	"charm.land/log/v2"
 	"github.com/Work-Fort/Combine/internal/app/backend"
+	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/Work-Fort/Combine/pkg/config"
-	"github.com/Work-Fort/Combine/pkg/proto"
 	"github.com/golang-jwt/jwt/v5"
 )
 
 // authenticate authenticates the user from the request.
-func authenticate(r *http.Request) (proto.User, error) {
+func authenticate(r *http.Request) (*domain.User, error) {
 	// Prefer the Authorization header
 	user, err := parseAuthHdr(r)
 	if err != nil || user == nil {
 		if errors.Is(err, ErrInvalidToken) || errors.Is(err, ErrInvalidPassword) {
 			return nil, err
 		}
-		return nil, proto.ErrUserNotFound
+		return nil, domain.ErrUserNotFound
 	}
 
 	return user, nil
@@ -31,13 +31,13 @@ func authenticate(r *http.Request) (proto.User, error) {
 // ErrInvalidPassword is returned when the password is invalid.
 var ErrInvalidPassword = errors.New("invalid password")
 
-func parseUsernamePassword(ctx context.Context, username, password string) (proto.User, error) {
+func parseUsernamePassword(ctx context.Context, username, password string) (*domain.User, error) {
 	logger := log.FromContext(ctx)
 	be := backend.FromContext(ctx)
 
 	if username != "" && password != "" {
 		user, err := be.User(ctx, username)
-		if err == nil && user != nil && backend.VerifyPassword(password, user.Password()) {
+		if err == nil && user != nil && backend.VerifyPassword(password, user.Password) {
 			return user, nil
 		}
 
@@ -61,13 +61,13 @@ func parseUsernamePassword(ctx context.Context, username, password string) (prot
 		return nil, ErrInvalidToken
 	}
 
-	return nil, proto.ErrUserNotFound
+	return nil, domain.ErrUserNotFound
 }
 
 // ErrInvalidHeader is returned when the authorization header is invalid.
 var ErrInvalidHeader = errors.New("invalid authorization header")
 
-func parseAuthHdr(r *http.Request) (proto.User, error) {
+func parseAuthHdr(r *http.Request) (*domain.User, error) {
 	// Check for auth header
 	header := r.Header.Get("Authorization")
 	if header == "" {
@@ -113,7 +113,7 @@ func parseAuthHdr(r *http.Request) (proto.User, error) {
 			return nil, err
 		}
 
-		expectedSubject := fmt.Sprintf("%s#%d", user.Username(), user.ID())
+		expectedSubject := fmt.Sprintf("%s#%d", user.Username, user.ID)
 		if expectedSubject != claims.Subject {
 			logger.Error("invalid jwt subject", "subject", claims.Subject, "expected", expectedSubject)
 			return nil, errors.New("invalid jwt subject")
@@ -141,7 +141,7 @@ func parseJWT(ctx context.Context, bearer string) (*jwt.RegisteredClaims, error)
 		return nil, err
 	}
 
-	repo := proto.RepositoryFromContext(ctx)
+	repo := domain.RepoFromContext(ctx)
 	if repo == nil {
 		return nil, errors.New("missing repository")
 	}
@@ -155,7 +155,7 @@ func parseJWT(ctx context.Context, bearer string) (*jwt.RegisteredClaims, error)
 	},
 		jwt.WithIssuer(cfg.HTTP.PublicURL),
 		jwt.WithIssuedAt(),
-		jwt.WithAudience(repo.Name()),
+		jwt.WithAudience(repo.Name),
 	)
 	if err != nil {
 		logger.Error("failed to parse jwt", "err", err)

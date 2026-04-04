@@ -8,16 +8,14 @@ import (
 	"time"
 
 	"charm.land/log/v2"
+	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/Work-Fort/Combine/pkg/config"
 	"github.com/Work-Fort/Combine/internal/infra/jwk"
 	"github.com/Work-Fort/Combine/internal/infra/lfs"
-	"github.com/Work-Fort/Combine/pkg/proto"
 	"github.com/golang-jwt/jwt/v5"
 )
 
 // LFSAuthenticate implements the Git LFS SSH authentication command.
-// Context must have *config.Config, *log.Logger, proto.User.
-// cmd.Args should have the repo path and operation as arguments.
 func LFSAuthenticate(ctx context.Context, cmd ServiceCommand) error {
 	if len(cmd.Args) < 2 {
 		return errors.New("missing args")
@@ -30,16 +28,16 @@ func LFSAuthenticate(ctx context.Context, cmd ServiceCommand) error {
 		return errors.New("invalid operation")
 	}
 
-	user := proto.UserFromContext(ctx)
+	user := domain.UserFromContext(ctx)
 	if user == nil {
 		logger.Errorf("missing user")
-		return proto.ErrUserNotFound
+		return domain.ErrUserNotFound
 	}
 
-	repo := proto.RepositoryFromContext(ctx)
+	repo := domain.RepoFromContext(ctx)
 	if repo == nil {
 		logger.Errorf("missing repository")
-		return proto.ErrRepoNotFound
+		return domain.ErrRepoNotFound
 	}
 
 	cfg := config.FromContext(ctx)
@@ -53,13 +51,13 @@ func LFSAuthenticate(ctx context.Context, cmd ServiceCommand) error {
 	expiresIn := time.Minute * 5
 	expiresAt := now.Add(expiresIn)
 	claims := jwt.RegisteredClaims{
-		Subject:   fmt.Sprintf("%s#%d", user.Username(), user.ID()),
-		ExpiresAt: jwt.NewNumericDate(expiresAt), // expire in an hour
+		Subject:   fmt.Sprintf("%s#%d", user.Username, user.ID),
+		ExpiresAt: jwt.NewNumericDate(expiresAt),
 		NotBefore: jwt.NewNumericDate(now),
 		IssuedAt:  jwt.NewNumericDate(now),
 		Issuer:    cfg.HTTP.PublicURL,
 		Audience: []string{
-			repo.Name(),
+			repo.Name,
 		},
 	}
 
@@ -71,7 +69,7 @@ func LFSAuthenticate(ctx context.Context, cmd ServiceCommand) error {
 		return err
 	}
 
-	href := fmt.Sprintf("%s/%s.git/info/lfs", cfg.HTTP.PublicURL, repo.Name())
+	href := fmt.Sprintf("%s/%s.git/info/lfs", cfg.HTTP.PublicURL, repo.Name)
 	logger.Debug("generated token", "token", j, "href", href, "expires_at", expiresAt)
 
 	return json.NewEncoder(cmd.Stdout).Encode(lfs.AuthenticateResponse{

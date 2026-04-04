@@ -5,62 +5,47 @@ import (
 	"encoding/json"
 
 	"charm.land/log/v2"
-	"github.com/Work-Fort/Combine/pkg/db"
-	"github.com/Work-Fort/Combine/pkg/db/models"
-	"github.com/Work-Fort/Combine/pkg/proto"
-	"github.com/Work-Fort/Combine/pkg/store"
-	"github.com/Work-Fort/Combine/internal/infra/utils"
+	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/Work-Fort/Combine/internal/infra/webhook"
 	"github.com/google/uuid"
 )
 
 // CreateWebhook creates a webhook for a repository.
-func (b *Backend) CreateWebhook(ctx context.Context, repo proto.Repository, url string, contentType webhook.ContentType, secret string, events []webhook.Event, active bool) error {
-	dbx := db.FromContext(ctx)
-	datastore := store.FromContext(ctx)
-	url = utils.Sanitize(url)
-
+func (b *Backend) CreateWebhook(ctx context.Context, repo *domain.Repo, url string, contentType webhook.ContentType, secret string, events []webhook.Event, active bool) error {
 	// Validate webhook URL to prevent SSRF attacks
 	if err := webhook.ValidateWebhookURL(url); err != nil {
 		return err //nolint:wrapcheck
 	}
 
-	return dbx.TransactionContext(ctx, func(tx *db.Tx) error {
-		lastID, err := datastore.CreateWebhook(ctx, tx, repo.ID(), url, secret, int(contentType), active)
+	return b.store.Transaction(ctx, func(tx domain.Store) error {
+		lastID, err := tx.CreateWebhook(ctx, repo.ID, url, secret, int(contentType), active)
 		if err != nil {
-			return db.WrapError(err)
+			return err
 		}
 
 		evs := make([]int, len(events))
 		for i, e := range events {
 			evs[i] = int(e)
 		}
-		if err := datastore.CreateWebhookEvents(ctx, tx, lastID, evs); err != nil {
-			return db.WrapError(err)
-		}
-
-		return nil
+		return tx.CreateWebhookEvents(ctx, lastID, evs)
 	})
 }
 
 // Webhook returns a webhook for a repository.
-func (b *Backend) Webhook(ctx context.Context, repo proto.Repository, id int64) (webhook.Hook, error) {
-	dbx := db.FromContext(ctx)
-	datastore := store.FromContext(ctx)
-
+func (b *Backend) Webhook(ctx context.Context, repo *domain.Repo, id int64) (webhook.Hook, error) {
 	var wh webhook.Hook
-	if err := dbx.TransactionContext(ctx, func(tx *db.Tx) error {
-		h, err := datastore.GetWebhookByID(ctx, tx, repo.ID(), id)
+	if err := b.store.Transaction(ctx, func(tx domain.Store) error {
+		h, err := tx.GetWebhookByID(ctx, repo.ID, id)
 		if err != nil {
-			return db.WrapError(err)
+			return err
 		}
-		events, err := datastore.GetWebhookEventsByWebhookID(ctx, tx, id)
+		events, err := tx.ListWebhookEventsByWebhookID(ctx, id)
 		if err != nil {
-			return db.WrapError(err)
+			return err
 		}
 
 		wh = webhook.Hook{
-			Webhook:     h,
+			Webhook:     *h,
 			ContentType: webhook.ContentType(h.ContentType), //nolint:gosec
 			Events:      make([]webhook.Event, len(events)),
 		}
@@ -70,28 +55,25 @@ func (b *Backend) Webhook(ctx context.Context, repo proto.Repository, id int64) 
 
 		return nil
 	}); err != nil {
-		return webhook.Hook{}, db.WrapError(err)
+		return webhook.Hook{}, err
 	}
 
 	return wh, nil
 }
 
 // ListWebhooks lists webhooks for a repository.
-func (b *Backend) ListWebhooks(ctx context.Context, repo proto.Repository) ([]webhook.Hook, error) {
-	dbx := db.FromContext(ctx)
-	datastore := store.FromContext(ctx)
-
-	var webhooks []models.Webhook
-	webhookEvents := map[int64][]models.WebhookEvent{}
-	if err := dbx.TransactionContext(ctx, func(tx *db.Tx) error {
+func (b *Backend) ListWebhooks(ctx context.Context, repo *domain.Repo) ([]webhook.Hook, error) {
+	var webhooks []*domain.Webhook
+	webhookEvents := map[int64][]*domain.WebhookEvent{}
+	if err := b.store.Transaction(ctx, func(tx domain.Store) error {
 		var err error
-		webhooks, err = datastore.GetWebhooksByRepoID(ctx, tx, repo.ID())
+		webhooks, err = tx.ListWebhooksByRepoID(ctx, repo.ID)
 		if err != nil {
 			return err
 		}
 
 		for _, h := range webhooks {
-			events, err := datastore.GetWebhookEventsByWebhookID(ctx, tx, h.ID)
+			events, err := tx.ListWebhookEventsByWebhookID(ctx, h.ID)
 			if err != nil {
 				return err
 			}
@@ -100,18 +82,18 @@ func (b *Backend) ListWebhooks(ctx context.Context, repo proto.Repository) ([]we
 
 		return nil
 	}); err != nil {
-		return nil, db.WrapError(err)
+		return nil, err
 	}
 
 	hooks := make([]webhook.Hook, len(webhooks))
 	for i, h := range webhooks {
 		events := make([]webhook.Event, len(webhookEvents[h.ID]))
-		for i, e := range webhookEvents[h.ID] {
-			events[i] = webhook.Event(e.Event)
+		for j, e := range webhookEvents[h.ID] {
+			events[j] = webhook.Event(e.Event)
 		}
 
 		hooks[i] = webhook.Hook{
-			Webhook:     h,
+			Webhook:     *h,
 			ContentType: webhook.ContentType(h.ContentType), //nolint:gosec
 			Events:      events,
 		}
@@ -121,23 +103,20 @@ func (b *Backend) ListWebhooks(ctx context.Context, repo proto.Repository) ([]we
 }
 
 // UpdateWebhook updates a webhook.
-func (b *Backend) UpdateWebhook(ctx context.Context, repo proto.Repository, id int64, url string, contentType webhook.ContentType, secret string, updatedEvents []webhook.Event, active bool) error {
-	dbx := db.FromContext(ctx)
-	datastore := store.FromContext(ctx)
-
+func (b *Backend) UpdateWebhook(ctx context.Context, repo *domain.Repo, id int64, url string, contentType webhook.ContentType, secret string, updatedEvents []webhook.Event, active bool) error {
 	// Validate webhook URL to prevent SSRF attacks
 	if err := webhook.ValidateWebhookURL(url); err != nil {
 		return err
 	}
 
-	return dbx.TransactionContext(ctx, func(tx *db.Tx) error {
-		if err := datastore.UpdateWebhookByID(ctx, tx, repo.ID(), id, url, secret, int(contentType), active); err != nil {
-			return db.WrapError(err)
+	return b.store.Transaction(ctx, func(tx domain.Store) error {
+		if err := tx.UpdateWebhookByID(ctx, repo.ID, id, url, secret, int(contentType), active); err != nil {
+			return err
 		}
 
-		currentEvents, err := datastore.GetWebhookEventsByWebhookID(ctx, tx, id)
+		currentEvents, err := tx.ListWebhookEventsByWebhookID(ctx, id)
 		if err != nil {
-			return db.WrapError(err)
+			return err
 		}
 
 		// Delete events that are no longer in the list.
@@ -155,8 +134,8 @@ func (b *Backend) UpdateWebhook(ctx context.Context, repo proto.Repository, id i
 			}
 		}
 
-		if err := datastore.DeleteWebhookEventsByID(ctx, tx, toBeDeleted); err != nil {
-			return db.WrapError(err)
+		if err := tx.DeleteWebhookEventsByID(ctx, toBeDeleted); err != nil {
+			return err
 		}
 
 		// Prune events that are already in the list.
@@ -174,54 +153,32 @@ func (b *Backend) UpdateWebhook(ctx context.Context, repo proto.Repository, id i
 			}
 		}
 
-		if err := datastore.CreateWebhookEvents(ctx, tx, id, newEvents); err != nil {
-			return db.WrapError(err)
-		}
-
-		return nil
+		return tx.CreateWebhookEvents(ctx, id, newEvents)
 	})
 }
 
 // DeleteWebhook deletes a webhook for a repository.
-func (b *Backend) DeleteWebhook(ctx context.Context, repo proto.Repository, id int64) error {
-	dbx := db.FromContext(ctx)
-	datastore := store.FromContext(ctx)
-
-	return dbx.TransactionContext(ctx, func(tx *db.Tx) error {
-		_, err := datastore.GetWebhookByID(ctx, tx, repo.ID(), id)
+func (b *Backend) DeleteWebhook(ctx context.Context, repo *domain.Repo, id int64) error {
+	return b.store.Transaction(ctx, func(tx domain.Store) error {
+		_, err := tx.GetWebhookByID(ctx, repo.ID, id)
 		if err != nil {
-			return db.WrapError(err)
+			return err
 		}
-		if err := datastore.DeleteWebhookForRepoByID(ctx, tx, repo.ID(), id); err != nil {
-			return db.WrapError(err)
-		}
-
-		return nil
+		return tx.DeleteWebhookForRepoByID(ctx, repo.ID, id)
 	})
 }
 
 // ListWebhookDeliveries lists webhook deliveries for a webhook.
 func (b *Backend) ListWebhookDeliveries(ctx context.Context, id int64) ([]webhook.Delivery, error) {
-	dbx := db.FromContext(ctx)
-	datastore := store.FromContext(ctx)
-
-	var deliveries []models.WebhookDelivery
-	if err := dbx.TransactionContext(ctx, func(tx *db.Tx) error {
-		var err error
-		deliveries, err = datastore.ListWebhookDeliveriesByWebhookID(ctx, tx, id)
-		if err != nil {
-			return db.WrapError(err)
-		}
-
-		return nil
-	}); err != nil {
-		return nil, db.WrapError(err)
+	deliveries, err := b.store.ListWebhookDeliveriesByWebhookID(ctx, id)
+	if err != nil {
+		return nil, err
 	}
 
 	ds := make([]webhook.Delivery, len(deliveries))
 	for i, d := range deliveries {
 		ds[i] = webhook.Delivery{
-			WebhookDelivery: d,
+			WebhookDelivery: *d,
 			Event:           webhook.Event(d.Event),
 		}
 	}
@@ -230,28 +187,25 @@ func (b *Backend) ListWebhookDeliveries(ctx context.Context, id int64) ([]webhoo
 }
 
 // RedeliverWebhookDelivery redelivers a webhook delivery.
-func (b *Backend) RedeliverWebhookDelivery(ctx context.Context, repo proto.Repository, id int64, delID uuid.UUID) error {
-	dbx := db.FromContext(ctx)
-	datastore := store.FromContext(ctx)
-
-	var delivery models.WebhookDelivery
-	var wh models.Webhook
-	if err := dbx.TransactionContext(ctx, func(tx *db.Tx) error {
+func (b *Backend) RedeliverWebhookDelivery(ctx context.Context, repo *domain.Repo, id int64, delID uuid.UUID) error {
+	var delivery *domain.WebhookDelivery
+	var wh *domain.Webhook
+	if err := b.store.Transaction(ctx, func(tx domain.Store) error {
 		var err error
-		wh, err = datastore.GetWebhookByID(ctx, tx, repo.ID(), id)
+		wh, err = tx.GetWebhookByID(ctx, repo.ID, id)
 		if err != nil {
 			log.Errorf("error getting webhook: %v", err)
-			return db.WrapError(err)
+			return err
 		}
 
-		delivery, err = datastore.GetWebhookDeliveryByID(ctx, tx, id, delID)
+		delivery, err = tx.GetWebhookDeliveryByID(ctx, id, delID)
 		if err != nil {
-			return db.WrapError(err)
+			return err
 		}
 
 		return nil
 	}); err != nil {
-		return db.WrapError(err)
+		return err
 	}
 
 	log.Infof("redelivering webhook delivery %s for webhook %d\n\n%s\n\n", delID, id, delivery.RequestBody)
@@ -262,30 +216,18 @@ func (b *Backend) RedeliverWebhookDelivery(ctx context.Context, repo proto.Repos
 		return err
 	}
 
-	return webhook.SendWebhook(ctx, wh, webhook.Event(delivery.Event), payload)
+	return webhook.SendWebhook(ctx, *wh, webhook.Event(delivery.Event), payload)
 }
 
 // WebhookDelivery returns a webhook delivery.
 func (b *Backend) WebhookDelivery(ctx context.Context, webhookID int64, id uuid.UUID) (webhook.Delivery, error) {
-	dbx := db.FromContext(ctx)
-	datastore := store.FromContext(ctx)
-
-	var delivery webhook.Delivery
-	if err := dbx.TransactionContext(ctx, func(tx *db.Tx) error {
-		d, err := datastore.GetWebhookDeliveryByID(ctx, tx, webhookID, id)
-		if err != nil {
-			return db.WrapError(err)
-		}
-
-		delivery = webhook.Delivery{
-			WebhookDelivery: d,
-			Event:           webhook.Event(d.Event),
-		}
-
-		return nil
-	}); err != nil {
-		return webhook.Delivery{}, db.WrapError(err)
+	d, err := b.store.GetWebhookDeliveryByID(ctx, webhookID, id)
+	if err != nil {
+		return webhook.Delivery{}, err
 	}
 
-	return delivery, nil
+	return webhook.Delivery{
+		WebhookDelivery: *d,
+		Event:           webhook.Event(d.Event),
+	}, nil
 }

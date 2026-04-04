@@ -8,25 +8,26 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/Work-Fort/Combine/pkg/config"
-	"github.com/Work-Fort/Combine/pkg/db"
+	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/Work-Fort/Combine/internal/infra/lfs"
-	"github.com/Work-Fort/Combine/pkg/proto"
 	"github.com/Work-Fort/Combine/internal/infra/storage"
-	"github.com/Work-Fort/Combine/pkg/store"
 )
 
 // StoreRepoMissingLFSObjects stores missing LFS objects for a repository.
-func StoreRepoMissingLFSObjects(ctx context.Context, repo proto.Repository, dbx *db.DB, store store.Store, lfsClient lfs.Client) error {
-	cfg := config.FromContext(ctx)
-	repoID := strconv.FormatInt(repo.ID(), 10)
-	lfsRoot := filepath.Join(cfg.DataPath, "lfs", repoID)
+func (d *Backend) StoreRepoMissingLFSObjects(ctx context.Context, repoName string, lfsClient lfs.Client) error {
+	repo, err := d.store.GetRepoByName(ctx, repoName)
+	if err != nil {
+		return err
+	}
+
+	repoID := strconv.FormatInt(repo.ID, 10)
+	lfsRoot := filepath.Join(d.cfg.DataDir, "lfs", repoID)
 
 	// TODO: support S3 storage
 	strg := storage.NewLocalStorage(lfsRoot)
 	pointerChan := make(chan lfs.PointerBlob)
 	errChan := make(chan error, 1)
-	r, err := repo.Open()
+	r, err := d.OpenRepo(repoName)
 	if err != nil {
 		return err
 	}
@@ -40,9 +41,9 @@ func StoreRepoMissingLFSObjects(ctx context.Context, repo proto.Repository, dbx 
 			}
 
 			defer content.Close() //nolint: errcheck
-			return dbx.TransactionContext(ctx, func(tx *db.Tx) error {
-				if err := store.CreateLFSObject(ctx, tx, repo.ID(), p.Oid, p.Size); err != nil {
-					return db.WrapError(err)
+			return d.store.Transaction(ctx, func(tx domain.Store) error {
+				if err := tx.CreateLFSObject(ctx, repo.ID, p.Oid, p.Size); err != nil {
+					return err
 				}
 
 				_, err := strg.Put(path.Join("objects", p.RelativePath()), content)
@@ -53,9 +54,9 @@ func StoreRepoMissingLFSObjects(ctx context.Context, repo proto.Repository, dbx 
 
 	var batch []lfs.Pointer
 	for pointer := range pointerChan {
-		obj, err := store.GetLFSObjectByOid(ctx, dbx, repo.ID(), pointer.Oid)
-		if err != nil && !errors.Is(err, db.ErrRecordNotFound) {
-			return db.WrapError(err)
+		obj, err := d.store.GetLFSObjectByOid(ctx, repo.ID, pointer.Oid)
+		if err != nil && !errors.Is(err, domain.ErrNotFound) {
+			return err
 		}
 
 		exist, err := strg.Exists(path.Join("objects", pointer.RelativePath()))
@@ -63,9 +64,9 @@ func StoreRepoMissingLFSObjects(ctx context.Context, repo proto.Repository, dbx 
 			return err
 		}
 
-		if exist && obj.ID == 0 {
-			if err := store.CreateLFSObject(ctx, dbx, repo.ID(), pointer.Oid, pointer.Size); err != nil {
-				return db.WrapError(err)
+		if exist && (obj == nil || obj.ID == 0) {
+			if err := d.store.CreateLFSObject(ctx, repo.ID, pointer.Oid, pointer.Size); err != nil {
+				return err
 			}
 		} else {
 			batch = append(batch, pointer.Pointer)

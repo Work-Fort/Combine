@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"charm.land/log/v2"
-	"github.com/Work-Fort/Combine/pkg/db"
+	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/gorilla/mux"
 )
 
@@ -22,9 +22,9 @@ func getLiveness(w http.ResponseWriter, _ *http.Request) {
 func getReadiness(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := log.FromContext(ctx)
-	db := db.FromContext(ctx)
+	datastore := domain.StoreFromContext(ctx)
 
-	if err := db.PingContext(ctx); err != nil {
+	if err := datastore.Ping(ctx); err != nil {
 		logger.Error("error getting db readiness", "err", err)
 		renderStatus(http.StatusServiceUnavailable)(w, nil)
 		return

@@ -12,7 +12,6 @@ import (
 	"github.com/Work-Fort/Combine/internal/app/backend"
 	"github.com/Work-Fort/Combine/pkg/config"
 	"github.com/Work-Fort/Combine/internal/infra/cron"
-	"github.com/Work-Fort/Combine/pkg/db"
 	"github.com/Work-Fort/Combine/internal/infra/jobs"
 	sshsrv "github.com/Work-Fort/Combine/internal/infra/ssh"
 	"github.com/Work-Fort/Combine/internal/infra/stats"
@@ -30,7 +29,6 @@ type Server struct {
 	Cron        *cron.Scheduler
 	Config      *config.Config
 	Backend     *backend.Backend
-	DB          *db.DB
 
 	logger *log.Logger
 	ctx    context.Context
@@ -44,13 +42,11 @@ func NewServer(ctx context.Context) (*Server, error) {
 	var err error
 	cfg := config.FromContext(ctx)
 	be := backend.FromContext(ctx)
-	db := db.FromContext(ctx)
 	logger := log.FromContext(ctx).WithPrefix("server")
 	srv := &Server{
 		Config:  cfg,
 		Backend: be,
-		DB:      db,
-		logger:  log.FromContext(ctx).WithPrefix("server"),
+		logger:  logger,
 		ctx:     ctx,
 	}
 

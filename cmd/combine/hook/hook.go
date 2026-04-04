@@ -44,7 +44,7 @@ var (
 		},
 		PersistentPostRunE: func(c *cobra.Command, args []string) error {
 			logger := log.FromContext(c.Context())
-			if err := cmd.CloseDBContext(c, args); err != nil {
+			if err := cmd.CloseStoreContext(c, args); err != nil {
 				logger.Error("failed to close backend", "err", err)
 				return ErrInternalServerError
 			}

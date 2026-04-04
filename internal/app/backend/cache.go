@@ -1,11 +1,14 @@
 package backend
 
-import lru "github.com/hashicorp/golang-lru/v2"
+import (
+	"github.com/Work-Fort/Combine/internal/domain"
+	lru "github.com/hashicorp/golang-lru/v2"
+)
 
 // TODO: implement a caching interface.
 type cache struct {
 	b     *Backend
-	repos *lru.Cache[string, *repo]
+	repos *lru.Cache[string, *domain.Repo]
 }
 
 func newCache(b *Backend, size int) *cache {
@@ -13,16 +16,16 @@ func newCache(b *Backend, size int) *cache {
 		size = 1
 	}
 	c := &cache{b: b}
-	cache, _ := lru.New[string, *repo](size)
+	cache, _ := lru.New[string, *domain.Repo](size)
 	c.repos = cache
 	return c
 }
 
-func (c *cache) Get(repo string) (*repo, bool) {
+func (c *cache) Get(repo string) (*domain.Repo, bool) {
 	return c.repos.Get(repo)
 }
 
-func (c *cache) Set(repo string, r *repo) {
+func (c *cache) Set(repo string, r *domain.Repo) {
 	c.repos.Add(repo, r)
 }
 

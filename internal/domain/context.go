@@ -62,3 +62,15 @@ func AccessLevelFromContext(ctx context.Context) AccessLevel {
 func WithAccessLevelContext(ctx context.Context, ac AccessLevel) context.Context {
 	return context.WithValue(ctx, accessLevelContextKey, ac)
 }
+
+// UserContextKey returns the context key used for users.
+// This is exposed for SSH session context which uses SetValue directly.
+func UserContextKey() *contextKey {
+	return userContextKey
+}
+
+// StoreContextKey returns the context key used for the store.
+// This is exposed for SSH session context which uses SetValue directly.
+func StoreContextKey() *contextKey {
+	return storeContextKey
+}

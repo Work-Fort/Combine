@@ -12,29 +12,29 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"path/filepath"
+	"strings"
 	"time"
 
+	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/Work-Fort/Combine/internal/infra/git"
-	"github.com/Work-Fort/Combine/pkg/db"
-	"github.com/Work-Fort/Combine/pkg/db/models"
-	"github.com/Work-Fort/Combine/pkg/proto"
-	"github.com/Work-Fort/Combine/pkg/store"
 	"github.com/Work-Fort/Combine/internal/infra/utils"
 	"github.com/Work-Fort/Combine/internal/infra/version"
+	"github.com/Work-Fort/Combine/pkg/config"
 	"github.com/google/go-querystring/query"
 	"github.com/google/uuid"
 )
 
 // Hook is a repository webhook.
 type Hook struct {
-	models.Webhook
+	domain.Webhook
 	ContentType ContentType
 	Events      []Event
 }
 
 // Delivery is a webhook delivery.
 type Delivery struct {
-	models.WebhookDelivery
+	domain.WebhookDelivery
 	Event Event
 }
 
@@ -93,10 +93,9 @@ func do(ctx context.Context, url string, method string, headers http.Header, bod
 }
 
 // SendWebhook sends a webhook event.
-func SendWebhook(ctx context.Context, w models.Webhook, event Event, payload interface{}) error {
+func SendWebhook(ctx context.Context, w domain.Webhook, event Event, payload interface{}) error {
 	var buf bytes.Buffer
-	dbx := db.FromContext(ctx)
-	datastore := store.FromContext(ctx)
+	datastore := domain.StoreFromContext(ctx)
 
 	contentType := ContentType(w.ContentType) //nolint:gosec
 	switch contentType {
@@ -160,20 +159,19 @@ func SendWebhook(ctx context.Context, w models.Webhook, event Event, payload int
 		}
 	}
 
-	return db.WrapError(datastore.CreateWebhookDelivery(ctx, dbx, id, w.ID, int(event), w.URL, http.MethodPost, reqErr, reqHeaders, reqBody, resStatus, resHeaders, resBody))
+	return datastore.CreateWebhookDelivery(ctx, id, w.ID, int(event), w.URL, http.MethodPost, reqErr, reqHeaders, reqBody, resStatus, resHeaders, resBody)
 }
 
 // SendEvent sends a webhook event.
 func SendEvent(ctx context.Context, payload EventPayload) error {
-	dbx := db.FromContext(ctx)
-	datastore := store.FromContext(ctx)
-	webhooks, err := datastore.GetWebhooksByRepoIDWhereEvent(ctx, dbx, payload.RepositoryID(), []int{int(payload.Event())})
+	datastore := domain.StoreFromContext(ctx)
+	webhooks, err := datastore.ListWebhooksByRepoIDWhereEvent(ctx, payload.RepositoryID(), []int{int(payload.Event())})
 	if err != nil {
-		return db.WrapError(err)
+		return err
 	}
 
 	for _, w := range webhooks {
-		if err := SendWebhook(ctx, w, payload.Event(), payload); err != nil {
+		if err := SendWebhook(ctx, *w, payload.Event(), payload); err != nil {
 			return err
 		}
 	}
@@ -185,15 +183,29 @@ func repoURL(publicURL string, repo string) string {
 	return fmt.Sprintf("%s/%s.git", publicURL, utils.SanitizeRepo(repo))
 }
 
-func getDefaultBranch(repo proto.Repository) (string, error) {
-	branch, err := proto.RepositoryDefaultBranch(repo)
+// openRepoFromContext opens a git repository using config from context.
+func openRepoFromContext(ctx context.Context, name string) (*git.Repository, error) {
+	cfg := config.FromContext(ctx)
+	rn := strings.ReplaceAll(name, "/", string(filepath.Separator))
+	rp := filepath.Join(cfg.DataPath, "repos", rn+".git")
+	return git.Open(rp)
+}
+
+func getDefaultBranch(ctx context.Context, repo *domain.Repo) (string, error) {
+	r, err := openRepoFromContext(ctx, repo.Name)
+	if err != nil {
+		return "", err
+	}
+	ref, err := r.HEAD()
 	// XXX: we check for ErrReferenceNotExist here because we don't want to
 	// return an error if the repo is an empty repo.
-	// This means that the repo doesn't have a default branch yet and this is
-	// the first push to it.
 	if err != nil && !errors.Is(err, git.ErrReferenceNotExist) {
 		return "", err
 	}
 
-	return branch, nil
+	if ref == nil {
+		return "", nil
+	}
+
+	return ref.Name().Short(), nil
 }

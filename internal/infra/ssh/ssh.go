@@ -13,9 +13,8 @@ import (
 	rm "charm.land/wish/v2/recover"
 	"github.com/charmbracelet/keygen"
 	"github.com/Work-Fort/Combine/internal/app/backend"
+	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/Work-Fort/Combine/pkg/config"
-	"github.com/Work-Fort/Combine/pkg/db"
-	"github.com/Work-Fort/Combine/pkg/store"
 	"github.com/charmbracelet/ssh"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -51,8 +50,7 @@ type SSHServer struct { //nolint: revive
 func NewSSHServer(ctx context.Context) (*SSHServer, error) {
 	cfg := config.FromContext(ctx)
 	logger := log.FromContext(ctx).WithPrefix("ssh")
-	dbx := db.FromContext(ctx)
-	datastore := store.FromContext(ctx)
+	datastore := domain.StoreFromContext(ctx)
 	be := backend.FromContext(ctx)
 
 	var err error
@@ -71,13 +69,9 @@ func NewSSHServer(ctx context.Context) (*SSHServer, error) {
 			// Logging middleware.
 			LoggingMiddleware,
 			// Authentication middleware.
-			// gossh.PublicKeyHandler doesn't guarantee that the public key
-			// is in fact the one used for authentication, so we need to
-			// check it again here.
 			AuthenticationMiddleware,
 			// Context middleware.
-			// This must come first to set up the context.
-			ContextMiddleware(cfg, dbx, datastore, be, logger),
+			ContextMiddleware(cfg, datastore, be, logger),
 		),
 	}
 
@@ -164,12 +158,9 @@ func (s *SSHServer) PublicKeyHandler(ctx ssh.Context, pk ssh.PublicKey) (allowed
 
 	allowed = true
 
-	// XXX: store the first "approved" public-key fingerprint in the
-	// permissions block to use for authentication later.
 	initializePermissions(ctx)
 	perms := ctx.Permissions()
 
-	// Set the public key fingerprint to be used for authentication.
 	perms.Extensions["pubkey-fp"] = gossh.FingerprintSHA256(pk)
 	ctx.SetValue(ssh.ContextKeyPermissions, perms)
 
@@ -177,18 +168,14 @@ func (s *SSHServer) PublicKeyHandler(ctx ssh.Context, pk ssh.PublicKey) (allowed
 }
 
 // KeyboardInteractiveHandler handles keyboard interactive authentication.
-// This is used after all public key authentication has failed.
 func (s *SSHServer) KeyboardInteractiveHandler(ctx ssh.Context, _ gossh.KeyboardInteractiveChallenge) bool {
 	ac := s.be.AllowKeyless(ctx)
 	keyboardInteractiveCounter.WithLabelValues(strconv.FormatBool(ac)).Inc()
 
-	// If we're allowing keyless access, reset the public key fingerprint
 	initializePermissions(ctx)
 	perms := ctx.Permissions()
 
 	if ac {
-		// XXX: reset the public-key fingerprint. This is used to validate the
-		// public key being used to authenticate.
 		perms.Extensions["pubkey-fp"] = ""
 		ctx.SetValue(ssh.ContextKeyPermissions, perms)
 	}
