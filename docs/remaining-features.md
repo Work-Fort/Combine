@@ -34,21 +34,24 @@ Domain types as plain structs, port interfaces without leaked transaction
 handles, adapter-managed persistence, Viper + XDG config, Goose migrations,
 raw `database/sql` with modernc.org/sqlite and pgx/v5.
 
-Note: `internal/legacy/config/` retains the old YAML+env config system.
-Full Viper migration is a follow-up task.
+Note: Legacy config replaced with Viper. Daemon command added.
 
-## 5. Issue Tracker
+## 5. Passport Auth + Repo REST API
+
+[Design](2026-04-04-passport-auth-repo-api-design.md)
+
+Integrate Passport for REST API authentication. Add repo management REST API
+(`/api/v1/repos`) and SSH key management (`/api/v1/user/keys`). Replace
+`users` table with `identities` (Passport UUID primary key, auto-provisioned).
+Add `/v1/health` and `/ui/health` endpoints. Standalone mode (no Passport)
+remains functional for SSH-only use.
+
+## 6. Issue Tracker
 
 Lightweight issue tracker for standalone viability and Flow integration.
 Domain model (Issue, IssueComment), store implementations, REST API, webhook
 events. Intentionally shallow status model (`open`, `in_progress`, `closed`)
 — Flow projects richer state when composed.
-
-## 6. Passport Authentication
-
-Replace Soft Serve's built-in auth with Passport JWT/API key validation.
-SSH key management may remain in Combine. Service identity registered in
-Passport during seed. Add `/ui/health` for Pylon service discovery.
 
 ## 7. MCP Bridge
 
