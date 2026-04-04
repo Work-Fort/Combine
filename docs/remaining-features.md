@@ -19,7 +19,7 @@ a subprocess, and exercises Git operations across SSH and HTTP transports.
 9 test scenarios covering health, push, clone, updates, error cases,
 unauthorized access, and LFS.
 
-## 3. Remove Git Daemon Protocol
+## 3. Remove Git Daemon Protocol ✅
 
 Strip the git:// daemon (port 9418). Legacy read-only unauthenticated protocol
 not needed for Combine's target use cases.
