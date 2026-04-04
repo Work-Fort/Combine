@@ -1,34 +1,31 @@
 package web
 
 import (
-	"context"
 	"net/http"
 
-	"charm.land/log/v2"
 	"github.com/Work-Fort/Combine/internal/domain"
-	"github.com/gorilla/mux"
+	"github.com/Work-Fort/Combine/internal/infra/version"
 )
 
-// HealthController registers the health check routes for the web server.
-func HealthController(_ context.Context, r *mux.Router) {
-	r.HandleFunc("/livez", getLiveness)
-	r.HandleFunc("/readyz", getReadiness)
-}
+func handleHealth(w http.ResponseWriter, r *http.Request) {
+	store := domain.StoreFromContext(r.Context())
+	status := "healthy"
+	code := http.StatusOK
 
-func getLiveness(w http.ResponseWriter, _ *http.Request) {
-	renderStatus(http.StatusOK)(w, nil)
-}
-
-func getReadiness(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	logger := log.FromContext(ctx)
-	datastore := domain.StoreFromContext(ctx)
-
-	if err := datastore.Ping(ctx); err != nil {
-		logger.Error("error getting db readiness", "err", err)
-		renderStatus(http.StatusServiceUnavailable)(w, nil)
-		return
+	if err := store.Ping(r.Context()); err != nil {
+		status = "unhealthy"
+		code = http.StatusServiceUnavailable
 	}
 
-	renderStatus(http.StatusOK)(w, nil)
+	writeJSON(w, code, map[string]string{"status": status})
+}
+
+func handleUIHealth(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{
+		"service": "combine",
+		"version": version.Version,
+		"routes": []map[string]string{
+			{"route": "/api/v1", "label": "API"},
+		},
+	})
 }
