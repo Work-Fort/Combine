@@ -124,7 +124,7 @@ func StartDaemon(t *testing.T, binary string) *Daemon {
 	}
 
 	// Poll for readiness
-	readyURL := fmt.Sprintf("http://%s/readyz", httpAddr)
+	readyURL := fmt.Sprintf("http://%s/v1/health", httpAddr)
 	deadline := time.Now().Add(15 * time.Second)
 	for time.Now().Before(deadline) {
 		resp, err := http.Get(readyURL)

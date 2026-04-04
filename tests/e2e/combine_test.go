@@ -3,7 +3,9 @@ package e2e
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -52,15 +54,40 @@ func sshPort(addr string) string {
 func TestHealth(t *testing.T) {
 	d := harness.StartDaemon(t, combineBin)
 
-	for _, path := range []string{"/readyz", "/livez"} {
-		resp, err := http.Get(fmt.Sprintf("http://%s%s", d.HTTPAddr, path))
-		if err != nil {
-			t.Fatalf("GET %s: %v", path, err)
-		}
-		resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			t.Errorf("GET %s: status %d, want 200", path, resp.StatusCode)
-		}
+	// Check /v1/health returns 200 with {"status":"healthy"}
+	resp, err := http.Get(fmt.Sprintf("http://%s/v1/health", d.HTTPAddr))
+	if err != nil {
+		t.Fatalf("GET /v1/health: %v", err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("GET /v1/health: status %d, want 200", resp.StatusCode)
+	}
+	var healthResp map[string]string
+	if err := json.Unmarshal(body, &healthResp); err != nil {
+		t.Fatalf("unmarshal /v1/health response: %v", err)
+	}
+	if healthResp["status"] != "healthy" {
+		t.Errorf("GET /v1/health: status = %q, want %q", healthResp["status"], "healthy")
+	}
+
+	// Check /ui/health returns 200 with service info
+	resp, err = http.Get(fmt.Sprintf("http://%s/ui/health", d.HTTPAddr))
+	if err != nil {
+		t.Fatalf("GET /ui/health: %v", err)
+	}
+	body, _ = io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("GET /ui/health: status %d, want 200", resp.StatusCode)
+	}
+	var uiResp map[string]any
+	if err := json.Unmarshal(body, &uiResp); err != nil {
+		t.Fatalf("unmarshal /ui/health response: %v", err)
+	}
+	if uiResp["service"] != "combine" {
+		t.Errorf("GET /ui/health: service = %v, want %q", uiResp["service"], "combine")
 	}
 }
 
