@@ -10,7 +10,7 @@ import (
 	"github.com/Work-Fort/Combine/cmd/combine/admin"
 	"github.com/Work-Fort/Combine/cmd/combine/hook"
 	"github.com/Work-Fort/Combine/cmd/combine/serve"
-	"github.com/Work-Fort/Combine/pkg/config"
+	"github.com/Work-Fort/Combine/internal/legacy/config"
 	logr "github.com/Work-Fort/Combine/internal/infra/log"
 	"github.com/Work-Fort/Combine/internal/infra/version"
 	mcobra "github.com/muesli/mango-cobra"

@@ -5,9 +5,7 @@ import (
 
 	"github.com/Work-Fort/Combine/cmd"
 	"github.com/Work-Fort/Combine/internal/app/backend"
-	"github.com/Work-Fort/Combine/pkg/config"
-	"github.com/Work-Fort/Combine/pkg/db"
-	"github.com/Work-Fort/Combine/pkg/db/migrate"
+	"github.com/Work-Fort/Combine/internal/legacy/config"
 	"github.com/spf13/cobra"
 )
 
@@ -21,31 +19,13 @@ var (
 	migrateCmd = &cobra.Command{
 		Use:                "migrate",
 		Short:              "Migrate the database to the latest version",
+		Long:               "Migrations are now applied automatically when the server starts. This command ensures the store is opened (which triggers Goose migrations) and then exits.",
 		PersistentPreRunE:  cmd.InitBackendContext,
 		PersistentPostRunE: cmd.CloseStoreContext,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			ctx := cmd.Context()
-			db := db.FromContext(ctx)
-			if err := migrate.Migrate(ctx, db); err != nil {
-				return fmt.Errorf("migration: %w", err)
-			}
-
-			return nil
-		},
-	}
-
-	rollbackCmd = &cobra.Command{
-		Use:                "rollback",
-		Short:              "Rollback the database to the previous version",
-		PersistentPreRunE:  cmd.InitBackendContext,
-		PersistentPostRunE: cmd.CloseStoreContext,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			ctx := cmd.Context()
-			db := db.FromContext(ctx)
-			if err := migrate.Rollback(ctx, db); err != nil {
-				return fmt.Errorf("rollback: %w", err)
-			}
-
+		RunE: func(c *cobra.Command, _ []string) error {
+			// Goose migrations run automatically in infra.Open(), which is
+			// called by InitBackendContext. Nothing else to do here.
+			fmt.Fprintln(c.OutOrStdout(), "Migrations are up to date.")
 			return nil
 		},
 	}
@@ -72,6 +52,5 @@ func init() {
 	Command.AddCommand(
 		syncHooksCmd,
 		migrateCmd,
-		rollbackCmd,
 	)
 }

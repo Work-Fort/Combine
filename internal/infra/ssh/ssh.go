@@ -14,7 +14,7 @@ import (
 	"github.com/charmbracelet/keygen"
 	"github.com/Work-Fort/Combine/internal/app/backend"
 	"github.com/Work-Fort/Combine/internal/domain"
-	"github.com/Work-Fort/Combine/pkg/config"
+	"github.com/Work-Fort/Combine/internal/legacy/config"
 	"github.com/charmbracelet/ssh"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"

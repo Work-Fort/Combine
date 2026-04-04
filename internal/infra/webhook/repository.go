@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/Work-Fort/Combine/internal/domain"
-	"github.com/Work-Fort/Combine/pkg/config"
+	"github.com/Work-Fort/Combine/internal/legacy/config"
 )
 
 // RepositoryEvent is a repository payload.

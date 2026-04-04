@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Work-Fort/Combine/pkg/db/models"
+	"github.com/Work-Fort/Combine/internal/domain"
 )
 
 // TestSSRFProtection tests that the webhook system blocks SSRF attempts.
@@ -53,7 +53,7 @@ func TestSSRFProtection(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a test webhook
-			webhook := models.Webhook{
+			webhook := domain.Webhook{
 				URL:         tt.webhookURL,
 				ContentType: int(ContentTypeJSON),
 				Secret:      "",
@@ -156,7 +156,7 @@ func TestDialContextBlocksPrivateIPs(t *testing.T) {
 }
 
 // sendWebhookWithContext is a test helper that doesn't require database.
-func sendWebhookWithContext(ctx context.Context, w models.Webhook, _ Event, _ any) error {
+func sendWebhookWithContext(ctx context.Context, w domain.Webhook, _ Event, _ any) error {
 	// This is a simplified version for testing that just attempts the HTTP connection
 	req, err := http.NewRequestWithContext(ctx, "POST", w.URL, nil)
 	if err != nil {
@@ -198,7 +198,7 @@ func indexOfSubstring(s, substr string) int {
 // TestPrivateIPResolution tests that hostnames resolving to private IPs are blocked.
 func TestPrivateIPResolution(t *testing.T) {
 	// This test verifies that even if a hostname looks public, if it resolves to a private IP, it's blocked
-	webhook := models.Webhook{
+	webhook := domain.Webhook{
 		URL:         "http://127.0.0.1:9999/webhook",
 		ContentType: int(ContentTypeJSON),
 	}

@@ -8,7 +8,7 @@ import (
 
 	"charm.land/log/v2"
 	"github.com/Work-Fort/Combine/internal/app/backend"
-	"github.com/Work-Fort/Combine/pkg/config"
+	"github.com/Work-Fort/Combine/internal/legacy/config"
 	"github.com/Work-Fort/Combine/internal/infra/utils"
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus"

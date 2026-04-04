@@ -10,7 +10,7 @@ import (
 	"charm.land/log/v2"
 	"github.com/Work-Fort/Combine/internal/app/backend"
 	"github.com/Work-Fort/Combine/internal/domain"
-	"github.com/Work-Fort/Combine/pkg/config"
+	"github.com/Work-Fort/Combine/internal/legacy/config"
 	"github.com/golang-jwt/jwt/v5"
 )
 

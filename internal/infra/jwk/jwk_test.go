@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/Work-Fort/Combine/pkg/config"
+	"github.com/Work-Fort/Combine/internal/legacy/config"
 )
 
 func TestBadNewPair(t *testing.T) {

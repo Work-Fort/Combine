@@ -13,7 +13,7 @@ import (
 	"github.com/Work-Fort/Combine/internal/domain"
 	infra "github.com/Work-Fort/Combine/internal/infra"
 	"github.com/Work-Fort/Combine/internal/infra/hooks"
-	"github.com/Work-Fort/Combine/pkg/config"
+	"github.com/Work-Fort/Combine/internal/legacy/config"
 	"github.com/spf13/cobra"
 )
 

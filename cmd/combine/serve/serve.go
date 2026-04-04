@@ -14,9 +14,7 @@ import (
 
 	"github.com/Work-Fort/Combine/cmd"
 	"github.com/Work-Fort/Combine/internal/app/backend"
-	"github.com/Work-Fort/Combine/pkg/config"
-	"github.com/Work-Fort/Combine/pkg/db"
-	"github.com/Work-Fort/Combine/pkg/db/migrate"
+	"github.com/Work-Fort/Combine/internal/legacy/config"
 	"github.com/spf13/cobra"
 )
 
@@ -65,10 +63,8 @@ var (
 				os.MkdirAll(logPath, os.ModePerm) //nolint: errcheck
 			}
 
-			db := db.FromContext(ctx)
-			if err := migrate.Migrate(ctx, db); err != nil {
-				return fmt.Errorf("migration error: %w", err)
-			}
+			// Migrations are now handled automatically by Goose during
+			// infra.Open() — no separate migration step needed.
 
 			s, err := NewServer(ctx)
 			if err != nil {

@@ -20,7 +20,7 @@ import (
 	"github.com/Work-Fort/Combine/internal/infra/git"
 	"github.com/Work-Fort/Combine/internal/infra/utils"
 	"github.com/Work-Fort/Combine/internal/infra/version"
-	"github.com/Work-Fort/Combine/pkg/config"
+	"github.com/Work-Fort/Combine/internal/legacy/config"
 	"github.com/google/go-querystring/query"
 	"github.com/google/uuid"
 )

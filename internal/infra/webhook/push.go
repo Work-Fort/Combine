@@ -7,7 +7,7 @@ import (
 	gitm "github.com/aymanbagabas/git-module"
 	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/Work-Fort/Combine/internal/infra/git"
-	"github.com/Work-Fort/Combine/pkg/config"
+	"github.com/Work-Fort/Combine/internal/legacy/config"
 )
 
 // PushEvent is a push event.

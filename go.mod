@@ -22,8 +22,6 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/jackc/pgx/v5 v5.9.1
-	github.com/jmoiron/sqlx v1.4.0
-	github.com/lib/pq v1.11.1
 	github.com/matryer/is v1.4.1
 	github.com/muesli/mango-cobra v1.3.0
 	github.com/muesli/roff v0.1.0
