@@ -90,7 +90,7 @@ func ContextMiddleware(cfg *config.Config, dbx *db.DB, datastore store.Store, be
 }
 
 var cliCommandCounter = promauto.NewCounterVec(prometheus.CounterOpts{
-	Namespace: "soft_serve",
+	Namespace: "combine",
 	Subsystem: "cli",
 	Name:      "commands_total",
 	Help:      "Total times each command was called",

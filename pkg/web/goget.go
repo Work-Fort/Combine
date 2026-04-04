@@ -16,7 +16,7 @@ import (
 )
 
 var goGetCounter = promauto.NewCounterVec(prometheus.CounterOpts{
-	Namespace: "soft_serve",
+	Namespace: "combine",
 	Subsystem: "http",
 	Name:      "go_get_total",
 	Help:      "The total number of go get requests",

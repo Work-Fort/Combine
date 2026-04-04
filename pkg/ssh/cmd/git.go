@@ -22,77 +22,77 @@ import (
 
 var (
 	uploadPackCounter = promauto.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "soft_serve",
+		Namespace: "combine",
 		Subsystem: "git",
 		Name:      "upload_pack_total",
 		Help:      "The total number of git-upload-pack requests",
 	}, []string{"repo"})
 
 	receivePackCounter = promauto.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "soft_serve",
+		Namespace: "combine",
 		Subsystem: "git",
 		Name:      "receive_pack_total",
 		Help:      "The total number of git-receive-pack requests",
 	}, []string{"repo"})
 
 	uploadArchiveCounter = promauto.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "soft_serve",
+		Namespace: "combine",
 		Subsystem: "git",
 		Name:      "upload_archive_total",
 		Help:      "The total number of git-upload-archive requests",
 	}, []string{"repo"})
 
 	lfsAuthenticateCounter = promauto.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "soft_serve",
+		Namespace: "combine",
 		Subsystem: "git",
 		Name:      "lfs_authenticate_total",
 		Help:      "The total number of git-lfs-authenticate requests",
 	}, []string{"repo", "operation"})
 
 	lfsTransferCounter = promauto.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "soft_serve",
+		Namespace: "combine",
 		Subsystem: "git",
 		Name:      "lfs_transfer_total",
 		Help:      "The total number of git-lfs-transfer requests",
 	}, []string{"repo", "operation"})
 
 	uploadPackSeconds = promauto.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "soft_serve",
+		Namespace: "combine",
 		Subsystem: "git",
 		Name:      "upload_pack_seconds_total",
 		Help:      "The total time spent on git-upload-pack requests",
 	}, []string{"repo"})
 
 	receivePackSeconds = promauto.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "soft_serve",
+		Namespace: "combine",
 		Subsystem: "git",
 		Name:      "receive_pack_seconds_total",
 		Help:      "The total time spent on git-receive-pack requests",
 	}, []string{"repo"})
 
 	uploadArchiveSeconds = promauto.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "soft_serve",
+		Namespace: "combine",
 		Subsystem: "git",
 		Name:      "upload_archive_seconds_total",
 		Help:      "The total time spent on git-upload-archive requests",
 	}, []string{"repo"})
 
 	lfsAuthenticateSeconds = promauto.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "soft_serve",
+		Namespace: "combine",
 		Subsystem: "git",
 		Name:      "lfs_authenticate_seconds_total",
 		Help:      "The total time spent on git-lfs-authenticate requests",
 	}, []string{"repo", "operation"})
 
 	lfsTransferSeconds = promauto.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "soft_serve",
+		Namespace: "combine",
 		Subsystem: "git",
 		Name:      "lfs_transfer_seconds_total",
 		Help:      "The total time spent on git-lfs-transfer requests",
 	}, []string{"repo", "operation"})
 
 	createRepoCounter = promauto.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "soft_serve",
+		Namespace: "combine",
 		Subsystem: "ssh",
 		Name:      "create_repo_total",
 		Help:      "The total number of create repo requests",
