@@ -43,11 +43,14 @@ func NewPushEvent(ctx context.Context, user *domain.User, repo *domain.Repo, ref
 				CreatedAt:   repo.CreatedAt,
 				UpdatedAt:   repo.UpdatedAt,
 			},
-			Sender: User{
-				ID:       user.ID,
-				Username: user.Username,
-			},
 		},
+	}
+
+	if user != nil {
+		payload.Sender = User{
+			ID:       user.ID,
+			Username: user.Username,
+		}
 	}
 
 	cfg := config.FromContext(ctx)

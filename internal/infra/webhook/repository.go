@@ -52,11 +52,14 @@ func NewRepositoryEvent(ctx context.Context, user *domain.User, repo *domain.Rep
 				CreatedAt:   repo.CreatedAt,
 				UpdatedAt:   repo.UpdatedAt,
 			},
-			Sender: User{
-				ID:       user.ID,
-				Username: user.Username,
-			},
 		},
+	}
+
+	if user != nil {
+		payload.Sender = User{
+			ID:       user.ID,
+			Username: user.Username,
+		}
 	}
 
 	cfg := config.FromContext(ctx)
