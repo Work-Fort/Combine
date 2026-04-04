@@ -273,11 +273,15 @@ git commit -m "feat: implement IssueStore in PostgreSQL adapter"
 **Files:**
 - Create: `internal/infra/httpapi/api_issues.go`
 
-Follow the pattern in `httpapi/api_repos.go`.
+Follow the pattern in `httpapi/api_repos.go`. The package declaration must be
+`package web` (all files in `internal/infra/httpapi/` use `package web`, not
+`package httpapi`).
 
 **Step 1: Define request/response types**
 
 ```go
+package web
+
 type createIssueRequest struct {
     Title      string   `json:"title"`
     Body       string   `json:"body,omitempty"`
@@ -374,7 +378,19 @@ Each handler:
 
 **Step 4: Wire routes in server.go**
 
-Add `RegisterIssueRoutes(api)` alongside `RegisterRepoRoutes(api)` in the API subrouter setup.
+**IMPORTANT: Registration order matters.** `RegisterIssueRoutes(api)` MUST be
+called BEFORE `RegisterRepoRoutes(api)`. The repo routes use the greedy pattern
+`{repo:.+}` which will match paths like `myrepo/issues` and swallow issue
+routes if registered first. gorilla/mux tries routes in registration order, so
+registering issue routes first ensures the more specific
+`/repos/{repo}/issues/...` patterns match before the greedy `/repos/{repo:.+}`.
+
+```go
+// Issue routes MUST be registered before repo routes — the {repo:.+} pattern
+// is greedy and will swallow /repos/{repo}/issues paths otherwise.
+RegisterIssueRoutes(api)
+RegisterRepoRoutes(api)
+```
 
 **Step 5: Resolve identity usernames for responses**
 
@@ -451,59 +467,67 @@ type CommentPayload struct {
     CreatedAt time.Time `json:"created_at"`
 }
 
+// IdentitySender represents a Passport identity in webhook payloads.
+// Used by issue events instead of the legacy webhook.User (which has int64 ID).
+type IdentitySender struct {
+    ID       string `json:"id"`
+    Username string `json:"username"`
+}
+
 // IssueOpenedEvent is fired when a new issue is created.
+// The Sender field (json:"sender") shadows Common.Sender via Go's encoding/json
+// field promotion rules: when an embedded struct and the outer struct both have
+// a field with the same JSON tag, the outer (non-embedded) field wins.
 type IssueOpenedEvent struct {
     Common
-    Issue IssuePayload `json:"issue"`
+    Sender IdentitySender `json:"sender"` // shadows Common.Sender in JSON output
+    Issue  IssuePayload   `json:"issue"`
 }
 
 // IssueStatusChangedEvent is fired when an issue's status changes.
 type IssueStatusChangedEvent struct {
     Common
-    Issue     IssuePayload `json:"issue"`
-    OldStatus string       `json:"old_status"`
-    NewStatus string       `json:"new_status"`
+    Sender    IdentitySender `json:"sender"`
+    Issue     IssuePayload   `json:"issue"`
+    OldStatus string         `json:"old_status"`
+    NewStatus string         `json:"new_status"`
 }
 
 // IssueClosedEvent is fired when an issue is closed.
 type IssueClosedEvent struct {
     Common
-    Issue      IssuePayload `json:"issue"`
-    Resolution string       `json:"resolution"`
+    Sender     IdentitySender `json:"sender"`
+    Issue      IssuePayload   `json:"issue"`
+    Resolution string         `json:"resolution"`
 }
 
 // IssueCommentEvent is fired when a comment is added to an issue.
 type IssueCommentEvent struct {
     Common
+    Sender  IdentitySender `json:"sender"`
     Issue   IssuePayload   `json:"issue"`
     Comment CommentPayload `json:"comment"`
 }
 ```
 
-Add constructor functions (`NewIssueOpenedEvent`, etc.) following the
-`NewRepositoryEvent` pattern: build Common with repo info, set sender from
-identity context, populate issue/comment payloads.
+Each issue event struct embeds `Common` for `EventType` and `Repository`, but
+declares its own `Sender IdentitySender` field with `json:"sender"`. Go's
+`encoding/json` prefers the outer (non-embedded) field when JSON tags collide,
+so the serialized JSON will contain the `IdentitySender` (string ID), not the
+legacy `webhook.User` (int64 ID). This avoids breaking existing push/repo
+webhook consumers while giving issue events identity-based senders.
 
-Note: The `Common.Sender` field currently uses `webhook.User` which has
-`ID int64`. For issue events, the sender is an Identity (string UUID). Either:
-- Add a new `IdentitySender` field alongside `Sender` for issue events, or
-- Update `webhook.User` to use `string` ID (breaking change for existing events)
-
-Recommended: Add an `IdentitySender` struct with `ID string` and `Username string`
-for issue event payloads. Existing push/repo events keep using the legacy
-`User` sender. This avoids breaking existing webhook consumers.
+Add constructor functions following the `NewRepositoryEvent` pattern:
 
 ```go
-// IdentitySender represents a Passport identity in webhook payloads.
-type IdentitySender struct {
-    ID       string `json:"id"`
-    Username string `json:"username"`
-}
+func NewIssueOpenedEvent(ctx context.Context, identity *domain.Identity, repo *domain.Repo, issue *domain.Issue) (IssueOpenedEvent, error)
+func NewIssueStatusChangedEvent(ctx context.Context, identity *domain.Identity, repo *domain.Repo, issue *domain.Issue, oldStatus, newStatus string) (IssueStatusChangedEvent, error)
+func NewIssueClosedEvent(ctx context.Context, identity *domain.Identity, repo *domain.Repo, issue *domain.Issue, resolution string) (IssueClosedEvent, error)
+func NewIssueCommentEvent(ctx context.Context, identity *domain.Identity, repo *domain.Repo, issue *domain.Issue, comment *domain.IssueComment) (IssueCommentEvent, error)
 ```
 
-Issue event constructors use `IdentitySender` instead of `Sender` in `Common`.
-Override the `Sender` field or embed differently — the implementing agent should
-choose the cleanest approach.
+Each constructor builds `Common` with repo info (same as `NewRepositoryEvent`),
+sets `Sender` from the `*domain.Identity` parameter, and populates the issue/comment payloads.
 
 **Verify and commit:**
 
