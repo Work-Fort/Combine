@@ -57,12 +57,16 @@ issue_status_changed, issue_closed, issue_comment). Per-repo issue numbering.
 Intentionally shallow status model (`open`, `in_progress`, `closed`) — Flow
 projects richer state when composed.
 
-## 7. Merge Requests
+## 7. Pull Requests + Commit Keywords
 
-Lightweight merge/pull request model. Source branch, target branch, status
-(open, merged, closed). Diff rendering, conflict detection, merge logic.
-REST API at `/api/v1/repos/{repo}/merge-requests`. Webhook events
-(merge_request_opened, merge_request_merged, merge_request_closed).
+Pull requests (GitHub-style, not "merge requests"). Shared number sequence
+with issues per repo (#1 issue, #2 PR, #3 issue, etc.). Source/target branch,
+status (open, merged, closed). REST API at `/api/v1/repos/{repo}/pulls`.
+Webhook events (pull_request_opened, pull_request_merged, pull_request_closed).
+
+Commit message keywords (`closes #N`, `fixes #N`, `resolves #N`) parsed on
+push to auto-close referenced issues. Works on both direct pushes to default
+branch and PR merges.
 
 ## 8. Flow Integration
 
@@ -73,7 +77,7 @@ in Combine is a projection of Flow's process state.
 ## 9. MCP Bridge
 
 `combine mcp-bridge` stdio-to-HTTP bridge for Claude Code. MCP tools for
-repo management, issue CRUD, merge request management, webhook configuration.
+repo management, issue CRUD, pull request management, webhook configuration.
 Implemented last since it wraps the full API surface.
 
 ## 10. CI/CD
