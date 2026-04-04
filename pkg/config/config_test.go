@@ -73,11 +73,11 @@ func TestCustomConfigLocation(t *testing.T) {
 	// If we unset the custom location, then use the default location.
 	is.NoErr(os.Unsetenv("COMBINE_CONFIG_LOCATION"))
 	cfg = DefaultConfig()
-	is.Equal(cfg.Name, "Soft Serve")
+	is.Equal(cfg.Name, "Combine")
 	// Test that if the custom config location doesn't exist, default to datapath config.
 	is.NoErr(os.Setenv("COMBINE_CONFIG_LOCATION", "testdata/config_nonexistent.yaml"))
 	cfg = DefaultConfig()
-	is.Equal(cfg.Name, "Soft Serve")
+	is.Equal(cfg.Name, "Combine")
 }
 
 func TestParseMultipleHeaders(t *testing.T) {

@@ -5,7 +5,7 @@ import (
 	"text/template"
 )
 
-var configFileTmpl = template.Must(template.New("config").Parse(`# Soft Serve Server configurations
+var configFileTmpl = template.Must(template.New("config").Parse(`# Combine Server configurations
 
 # The name of the server.
 # This is the name that will be displayed in the UI.

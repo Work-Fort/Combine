@@ -139,7 +139,7 @@ type JobsConfig struct {
 	MirrorPull string `env:"MIRROR_PULL" yaml:"mirror_pull"`
 }
 
-// Config is the configuration for Soft Serve.
+// Config is the configuration for Combine.
 type Config struct {
 	// Name is the name of the server.
 	Name string `env:"NAME" yaml:"name"`
@@ -171,7 +171,7 @@ type Config struct {
 	// InitialAdminKeys is a list of public keys that will be added to the list of admins.
 	InitialAdminKeys []string `env:"INITIAL_ADMIN_KEYS" envSeparator:"\n" yaml:"initial_admin_keys"`
 
-	// DataPath is the path to the directory where Soft Serve will store its data.
+	// DataPath is the path to the directory where Combine will store its data.
 	DataPath string `env:"DATA_PATH" yaml:"-"`
 }
 
@@ -347,14 +347,14 @@ func (c *Config) Exist() bool {
 // Use Validate() to validate the config and ensure absolute paths.
 func DefaultConfig() *Config {
 	return &Config{
-		Name:     "Soft Serve",
+		Name:     "Combine",
 		DataPath: DefaultDataPath(),
 		SSH: SSHConfig{
 			Enabled:       true,
 			ListenAddr:    ":23231",
 			PublicURL:     "ssh://localhost:23231",
-			KeyPath:       filepath.Join("ssh", "soft_serve_host_ed25519"),
-			ClientKeyPath: filepath.Join("ssh", "soft_serve_client_ed25519"),
+			KeyPath:       filepath.Join("ssh", "combine_host_ed25519"),
+			ClientKeyPath: filepath.Join("ssh", "combine_client_ed25519"),
 			MaxTimeout:    0,
 			IdleTimeout:   10 * 60, // 10 minutes
 		},
@@ -386,7 +386,7 @@ func DefaultConfig() *Config {
 		},
 		DB: DBConfig{
 			Driver: "sqlite",
-			DataSource: "soft-serve.db" +
+			DataSource: "combine.db" +
 				"?_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)",
 		},
 		LFS: LFSConfig{

@@ -21,7 +21,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// Server is the Soft Serve server.
+// Server is the Combine server.
 type Server struct {
 	SSHServer   *sshsrv.SSHServer
 	HTTPServer  *web.HTTPServer
@@ -36,7 +36,7 @@ type Server struct {
 	ctx    context.Context
 }
 
-// NewServer returns a new *Server configured to serve Soft Serve. The SSH
+// NewServer returns a new *Server configured to serve Combine. The SSH
 // server key-pair will be created if none exists.
 // It expects a context with *backend.Backend, *db.DB, *log.Logger, and
 // *config.Config attached.
