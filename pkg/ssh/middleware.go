@@ -113,7 +113,7 @@ func CommandMiddleware(sh ssh.Handler) ssh.Handler {
 		args := s.Command()
 		cliCommandCounter.WithLabelValues(cmd.CommandName(args)).Inc()
 		rootCmd := &cobra.Command{
-			Short:        "Soft Serve is a self-hostable Git server for the command line.",
+			Short:        "Combine is a self-hostable Git forge for the WorkFort platform.",
 			SilenceUsage: true,
 		}
 		rootCmd.CompletionOptions.DisableDefaultCmd = true

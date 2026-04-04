@@ -13,7 +13,7 @@ import (
 	_ "modernc.org/sqlite" // sqlite driver
 )
 
-// DB is the interface for a Soft Serve database.
+// DB is the interface for a Combine database.
 type DB struct {
 	*sqlx.DB
 	logger *log.Logger

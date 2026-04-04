@@ -10,7 +10,7 @@ import (
 	"github.com/Work-Fort/Combine/pkg/task"
 )
 
-// Backend is the Soft Serve backend that handles users, repositories, and
+// Backend is the Combine backend that handles users, repositories, and
 // server settings management and operations.
 type Backend struct {
 	ctx     context.Context
@@ -22,7 +22,7 @@ type Backend struct {
 	manager *task.Manager
 }
 
-// New returns a new Soft Serve backend.
+// New returns a new Combine backend.
 func New(ctx context.Context, cfg *config.Config, db *db.DB, st store.Store) *Backend {
 	logger := log.FromContext(ctx).WithPrefix("backend")
 	b := &Backend{

@@ -9,6 +9,9 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// saltySalt is the salt prefix for password hashing.
+// This value is kept as "salty-soft-serve" for backward compatibility
+// with existing password hashes. Do not change.
 const saltySalt = "salty-soft-serve"
 
 // HashPassword hashes the password using bcrypt.

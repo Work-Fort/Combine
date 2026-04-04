@@ -33,7 +33,7 @@ func TestGenerateHooks(t *testing.T) {
 		if _, err := os.Stat(filepath.Join(repoPath, "hooks", hn)); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := os.Stat(filepath.Join(repoPath, "hooks", hn+".d", "soft-serve")); err != nil {
+		if _, err := os.Stat(filepath.Join(repoPath, "hooks", hn+".d", "combine")); err != nil {
 			t.Fatal(err)
 		}
 	}

@@ -1,12 +1,12 @@
 FROM alpine:latest
 
 # Create directories
-WORKDIR /soft-serve
+WORKDIR /combine
 # Expose data volume
-VOLUME /soft-serve
+VOLUME /combine
 
 # Environment variables
-ENV COMBINE_DATA_PATH "/soft-serve"
+ENV COMBINE_DATA_PATH "/combine"
 ENV COMBINE_INITIAL_ADMIN_KEYS ""
 # workaround to prevent slowness in docker when running with a tty
 ENV CI "1"
@@ -19,8 +19,8 @@ EXPOSE 23232/tcp
 # Stats
 EXPOSE 23233/tcp
 # Set the default command
-ENTRYPOINT [ "/usr/local/bin/soft", "serve" ]
+ENTRYPOINT [ "/usr/local/bin/combine", "serve" ]
 
 RUN apk update && apk add --update git bash openssh && rm -rf /var/cache/apk/*
 
-COPY soft /usr/local/bin/soft
+COPY combine /usr/local/bin/combine

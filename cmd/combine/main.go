@@ -122,7 +122,7 @@ func main() {
 	}
 
 	// Set the max number of processes to the number of CPUs
-	// This is useful when running soft serve in a container
+	// This is useful when running Combine in a container
 	if _, err := maxprocs.Set(opts...); err != nil {
 		log.Warn("couldn't set automaxprocs", "error", err)
 	}
