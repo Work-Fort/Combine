@@ -19,16 +19,16 @@ within each section.
 - [Design](2026-04-03-rebranding-design.md) · [Plan](plans/2026-04-03-rebranding-plan.md)
 
 ### E2E Test Suite
-- [ ] Test harness (build binary, start daemon, SSH key management, Git helpers)
-- [ ] TestHealth — `/readyz` and `/livez`
-- [ ] TestSSHPushCreatesRepo — push auto-creates repo
-- [ ] TestSSHClone — clone back over SSH
-- [ ] TestSSHPushUpdate — push additional commits
-- [ ] TestHTTPClone — clone public repo over HTTP
-- [ ] TestHTTPCloneNonExistent — error on missing repo
-- [ ] TestSSHCloneNonExistent — error on missing repo
-- [ ] TestSSHPushUnauthorized — rejected with unknown key
-- [ ] TestLFSPushPull — LFS tracked file round-trip
+- [x] Test harness (build binary, start daemon, SSH key management, Git helpers)
+- [x] TestHealth — `/readyz` and `/livez`
+- [x] TestSSHPushCreatesRepo — push auto-creates repo
+- [x] TestSSHClone — clone back over SSH
+- [x] TestSSHPushUpdate — push additional commits
+- [x] TestHTTPClone — clone public repo over HTTP
+- [x] TestHTTPCloneNonExistent — error on missing repo
+- [x] TestSSHCloneNonExistent — error on missing repo
+- [x] TestSSHPushUnauthorized — rejected with unknown key
+- [x] TestLFSPushPull — LFS tracked file round-trip (skips if git-lfs not installed)
 - [Design](2026-04-04-e2e-tests-design.md) · [Plan](plans/2026-04-04-e2e-tests-plan.md)
 
 ### Remove Git Daemon Protocol
