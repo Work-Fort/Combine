@@ -462,6 +462,19 @@ func TestIssueListFilter(t *testing.T) {
 	if len(all) != 2 {
 		t.Errorf("expected 2 issues, got %d", len(all))
 	}
+
+	open := client.ListIssuesWithStatus(t, "filter-test", "open")
+	if len(open) != 1 {
+		t.Errorf("expected 1 open issue, got %d", len(open))
+	}
+	if len(open) > 0 && open[0]["title"] != "Another open" {
+		t.Errorf("open issue title = %v, want 'Another open'", open[0]["title"])
+	}
+
+	closed := client.ListIssuesWithStatus(t, "filter-test", "closed")
+	if len(closed) != 1 {
+		t.Errorf("expected 1 closed issue, got %d", len(closed))
+	}
 }
 
 func TestIssueComments(t *testing.T) {

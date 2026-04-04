@@ -216,6 +216,18 @@ func (c *APIClient) ListIssues(t *testing.T, repo string) []map[string]any {
 	return c.decodeJSONArray(t, resp)
 }
 
+// ListIssuesWithStatus lists issues for a repo filtered by status.
+func (c *APIClient) ListIssuesWithStatus(t *testing.T, repo, status string) []map[string]any {
+	t.Helper()
+	resp := c.DoRequest(t, "GET", fmt.Sprintf("/api/v1/repos/%s/issues?status=%s", repo, status), nil)
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		t.Fatalf("ListIssuesWithStatus %s status=%s: status %d, body: %s", repo, status, resp.StatusCode, b)
+	}
+	return c.decodeJSONArray(t, resp)
+}
+
 // UpdateIssue updates an issue.
 func (c *APIClient) UpdateIssue(t *testing.T, repo string, number int, updates map[string]any) map[string]any {
 	t.Helper()
