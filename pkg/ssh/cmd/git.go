@@ -191,15 +191,15 @@ func gitRunE(cmd *cobra.Command, args []string) error {
 
 	// Environment variables to pass down to git hooks.
 	envs := []string{
-		"SOFT_SERVE_REPO_NAME=" + name,
-		"SOFT_SERVE_REPO_PATH=" + filepath.Join(reposDir, repoDir),
-		"SOFT_SERVE_PUBLIC_KEY=" + ak,
-		"SOFT_SERVE_LOG_PATH=" + filepath.Join(cfg.DataPath, "log", "hooks.log"),
+		"COMBINE_REPO_NAME=" + name,
+		"COMBINE_REPO_PATH=" + filepath.Join(reposDir, repoDir),
+		"COMBINE_PUBLIC_KEY=" + ak,
+		"COMBINE_LOG_PATH=" + filepath.Join(cfg.DataPath, "log", "hooks.log"),
 	}
 
 	if user != nil {
 		envs = append(envs,
-			"SOFT_SERVE_USERNAME="+user.Username(),
+			"COMBINE_USERNAME="+user.Username(),
 		)
 	}
 

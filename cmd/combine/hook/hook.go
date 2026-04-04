@@ -54,7 +54,7 @@ var (
 	}
 
 	// Git hooks read the config from the environment, based on
-	// $SOFT_SERVE_DATA_PATH. We already parse the config when the binary
+	// $COMBINE_DATA_PATH. We already parse the config when the binary
 	// starts, so we don't need to do it again.
 	// The --config flag is now deprecated.
 	hooksRunE = func(cmd *cobra.Command, args []string) error {
@@ -63,7 +63,7 @@ var (
 		cfg := config.FromContext(ctx)
 
 		// This is set in the server before invoking git-receive-pack/git-upload-pack
-		repoName := os.Getenv("SOFT_SERVE_REPO_NAME")
+		repoName := os.Getenv("COMBINE_REPO_NAME")
 
 		logger := log.FromContext(ctx).With("repo", repoName)
 

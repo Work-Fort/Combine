@@ -404,13 +404,13 @@ func serviceRpc(w http.ResponseWriter, r *http.Request) {
 	user := proto.UserFromContext(ctx)
 	cmd.Env = cfg.Environ()
 	cmd.Env = append(cmd.Env, []string{
-		"SOFT_SERVE_REPO_NAME=" + repoName,
-		"SOFT_SERVE_REPO_PATH=" + dir,
-		"SOFT_SERVE_LOG_PATH=" + filepath.Join(cfg.DataPath, "log", "hooks.log"),
+		"COMBINE_REPO_NAME=" + repoName,
+		"COMBINE_REPO_PATH=" + dir,
+		"COMBINE_LOG_PATH=" + filepath.Join(cfg.DataPath, "log", "hooks.log"),
 	}...)
 	if user != nil {
 		cmd.Env = append(cmd.Env, []string{
-			"SOFT_SERVE_USERNAME=" + user.Username(),
+			"COMBINE_USERNAME=" + user.Username(),
 		}...)
 	}
 	if len(version) != 0 {
@@ -506,13 +506,13 @@ func getInfoRefs(w http.ResponseWriter, r *http.Request) {
 		user := proto.UserFromContext(ctx)
 		cmd.Env = cfg.Environ()
 		cmd.Env = append(cmd.Env, []string{
-			"SOFT_SERVE_REPO_NAME=" + repoName,
-			"SOFT_SERVE_REPO_PATH=" + dir,
-			"SOFT_SERVE_LOG_PATH=" + filepath.Join(cfg.DataPath, "log", "hooks.log"),
+			"COMBINE_REPO_NAME=" + repoName,
+			"COMBINE_REPO_PATH=" + dir,
+			"COMBINE_LOG_PATH=" + filepath.Join(cfg.DataPath, "log", "hooks.log"),
 		}...)
 		if user != nil {
 			cmd.Env = append(cmd.Env, []string{
-				"SOFT_SERVE_USERNAME=" + user.Username(),
+				"COMBINE_USERNAME=" + user.Username(),
 			}...)
 		}
 		if len(protocol) != 0 {

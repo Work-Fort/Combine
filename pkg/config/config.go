@@ -14,7 +14,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var binPath = "soft"
+var binPath = "combine"
 
 // SSHConfig is the configuration for the SSH server.
 type SSHConfig struct {
@@ -178,7 +178,7 @@ type Config struct {
 // Environ returns the config as a list of environment variables.
 func (c *Config) Environ() []string {
 	envs := []string{
-		fmt.Sprintf("SOFT_SERVE_BIN_PATH=%s", binPath),
+		fmt.Sprintf("COMBINE_BIN_PATH=%s", binPath),
 	}
 	if c == nil {
 		return envs
@@ -186,40 +186,40 @@ func (c *Config) Environ() []string {
 
 	// TODO: do this dynamically
 	envs = append(envs, []string{
-		fmt.Sprintf("SOFT_SERVE_CONFIG_LOCATION=%s", c.ConfigPath()),
-		fmt.Sprintf("SOFT_SERVE_DATA_PATH=%s", c.DataPath),
-		fmt.Sprintf("SOFT_SERVE_NAME=%s", c.Name),
-		fmt.Sprintf("SOFT_SERVE_INITIAL_ADMIN_KEYS=%s", strings.Join(c.InitialAdminKeys, "\n")),
-		fmt.Sprintf("SOFT_SERVE_SSH_ENABLED=%t", c.SSH.Enabled),
-		fmt.Sprintf("SOFT_SERVE_SSH_LISTEN_ADDR=%s", c.SSH.ListenAddr),
-		fmt.Sprintf("SOFT_SERVE_SSH_PUBLIC_URL=%s", c.SSH.PublicURL),
-		fmt.Sprintf("SOFT_SERVE_SSH_KEY_PATH=%s", c.SSH.KeyPath),
-		fmt.Sprintf("SOFT_SERVE_SSH_CLIENT_KEY_PATH=%s", c.SSH.ClientKeyPath),
-		fmt.Sprintf("SOFT_SERVE_SSH_MAX_TIMEOUT=%d", c.SSH.MaxTimeout),
-		fmt.Sprintf("SOFT_SERVE_SSH_IDLE_TIMEOUT=%d", c.SSH.IdleTimeout),
-		fmt.Sprintf("SOFT_SERVE_GIT_ENABLED=%t", c.Git.Enabled),
-		fmt.Sprintf("SOFT_SERVE_GIT_LISTEN_ADDR=%s", c.Git.ListenAddr),
-		fmt.Sprintf("SOFT_SERVE_GIT_PUBLIC_URL=%s", c.Git.PublicURL),
-		fmt.Sprintf("SOFT_SERVE_GIT_MAX_TIMEOUT=%d", c.Git.MaxTimeout),
-		fmt.Sprintf("SOFT_SERVE_GIT_IDLE_TIMEOUT=%d", c.Git.IdleTimeout),
-		fmt.Sprintf("SOFT_SERVE_GIT_MAX_CONNECTIONS=%d", c.Git.MaxConnections),
-		fmt.Sprintf("SOFT_SERVE_HTTP_ENABLED=%t", c.HTTP.Enabled),
-		fmt.Sprintf("SOFT_SERVE_HTTP_LISTEN_ADDR=%s", c.HTTP.ListenAddr),
-		fmt.Sprintf("SOFT_SERVE_HTTP_TLS_KEY_PATH=%s", c.HTTP.TLSKeyPath),
-		fmt.Sprintf("SOFT_SERVE_HTTP_TLS_CERT_PATH=%s", c.HTTP.TLSCertPath),
-		fmt.Sprintf("SOFT_SERVE_HTTP_PUBLIC_URL=%s", c.HTTP.PublicURL),
-		fmt.Sprintf("SOFT_SERVE_HTTP_CORS_ALLOWED_HEADERS=%s", strings.Join(c.HTTP.CORS.AllowedHeaders, ",")),
-		fmt.Sprintf("SOFT_SERVE_HTTP_CORS_ALLOWED_ORIGINS=%s", strings.Join(c.HTTP.CORS.AllowedOrigins, ",")),
-		fmt.Sprintf("SOFT_SERVE_HTTP_CORS_ALLOWED_METHODS=%s", strings.Join(c.HTTP.CORS.AllowedMethods, ",")),
-		fmt.Sprintf("SOFT_SERVE_STATS_ENABLED=%t", c.Stats.Enabled),
-		fmt.Sprintf("SOFT_SERVE_STATS_LISTEN_ADDR=%s", c.Stats.ListenAddr),
-		fmt.Sprintf("SOFT_SERVE_LOG_FORMAT=%s", c.Log.Format),
-		fmt.Sprintf("SOFT_SERVE_LOG_TIME_FORMAT=%s", c.Log.TimeFormat),
-		fmt.Sprintf("SOFT_SERVE_DB_DRIVER=%s", c.DB.Driver),
-		fmt.Sprintf("SOFT_SERVE_DB_DATA_SOURCE=%s", c.DB.DataSource),
-		fmt.Sprintf("SOFT_SERVE_LFS_ENABLED=%t", c.LFS.Enabled),
-		fmt.Sprintf("SOFT_SERVE_LFS_SSH_ENABLED=%t", c.LFS.SSHEnabled),
-		fmt.Sprintf("SOFT_SERVE_JOBS_MIRROR_PULL=%s", c.Jobs.MirrorPull),
+		fmt.Sprintf("COMBINE_CONFIG_LOCATION=%s", c.ConfigPath()),
+		fmt.Sprintf("COMBINE_DATA_PATH=%s", c.DataPath),
+		fmt.Sprintf("COMBINE_NAME=%s", c.Name),
+		fmt.Sprintf("COMBINE_INITIAL_ADMIN_KEYS=%s", strings.Join(c.InitialAdminKeys, "\n")),
+		fmt.Sprintf("COMBINE_SSH_ENABLED=%t", c.SSH.Enabled),
+		fmt.Sprintf("COMBINE_SSH_LISTEN_ADDR=%s", c.SSH.ListenAddr),
+		fmt.Sprintf("COMBINE_SSH_PUBLIC_URL=%s", c.SSH.PublicURL),
+		fmt.Sprintf("COMBINE_SSH_KEY_PATH=%s", c.SSH.KeyPath),
+		fmt.Sprintf("COMBINE_SSH_CLIENT_KEY_PATH=%s", c.SSH.ClientKeyPath),
+		fmt.Sprintf("COMBINE_SSH_MAX_TIMEOUT=%d", c.SSH.MaxTimeout),
+		fmt.Sprintf("COMBINE_SSH_IDLE_TIMEOUT=%d", c.SSH.IdleTimeout),
+		fmt.Sprintf("COMBINE_GIT_ENABLED=%t", c.Git.Enabled),
+		fmt.Sprintf("COMBINE_GIT_LISTEN_ADDR=%s", c.Git.ListenAddr),
+		fmt.Sprintf("COMBINE_GIT_PUBLIC_URL=%s", c.Git.PublicURL),
+		fmt.Sprintf("COMBINE_GIT_MAX_TIMEOUT=%d", c.Git.MaxTimeout),
+		fmt.Sprintf("COMBINE_GIT_IDLE_TIMEOUT=%d", c.Git.IdleTimeout),
+		fmt.Sprintf("COMBINE_GIT_MAX_CONNECTIONS=%d", c.Git.MaxConnections),
+		fmt.Sprintf("COMBINE_HTTP_ENABLED=%t", c.HTTP.Enabled),
+		fmt.Sprintf("COMBINE_HTTP_LISTEN_ADDR=%s", c.HTTP.ListenAddr),
+		fmt.Sprintf("COMBINE_HTTP_TLS_KEY_PATH=%s", c.HTTP.TLSKeyPath),
+		fmt.Sprintf("COMBINE_HTTP_TLS_CERT_PATH=%s", c.HTTP.TLSCertPath),
+		fmt.Sprintf("COMBINE_HTTP_PUBLIC_URL=%s", c.HTTP.PublicURL),
+		fmt.Sprintf("COMBINE_HTTP_CORS_ALLOWED_HEADERS=%s", strings.Join(c.HTTP.CORS.AllowedHeaders, ",")),
+		fmt.Sprintf("COMBINE_HTTP_CORS_ALLOWED_ORIGINS=%s", strings.Join(c.HTTP.CORS.AllowedOrigins, ",")),
+		fmt.Sprintf("COMBINE_HTTP_CORS_ALLOWED_METHODS=%s", strings.Join(c.HTTP.CORS.AllowedMethods, ",")),
+		fmt.Sprintf("COMBINE_STATS_ENABLED=%t", c.Stats.Enabled),
+		fmt.Sprintf("COMBINE_STATS_LISTEN_ADDR=%s", c.Stats.ListenAddr),
+		fmt.Sprintf("COMBINE_LOG_FORMAT=%s", c.Log.Format),
+		fmt.Sprintf("COMBINE_LOG_TIME_FORMAT=%s", c.Log.TimeFormat),
+		fmt.Sprintf("COMBINE_DB_DRIVER=%s", c.DB.Driver),
+		fmt.Sprintf("COMBINE_DB_DATA_SOURCE=%s", c.DB.DataSource),
+		fmt.Sprintf("COMBINE_LFS_ENABLED=%t", c.LFS.Enabled),
+		fmt.Sprintf("COMBINE_LFS_SSH_ENABLED=%t", c.LFS.SSHEnabled),
+		fmt.Sprintf("COMBINE_JOBS_MIRROR_PULL=%s", c.Jobs.MirrorPull),
 	}...)
 
 	return envs
@@ -227,14 +227,14 @@ func (c *Config) Environ() []string {
 
 // IsDebug returns true if the server is running in debug mode.
 func IsDebug() bool {
-	debug, _ := strconv.ParseBool(os.Getenv("SOFT_SERVE_DEBUG"))
+	debug, _ := strconv.ParseBool(os.Getenv("COMBINE_DEBUG"))
 	return debug
 }
 
 // IsVerbose returns true if the server is running in verbose mode.
 // Verbose mode is only enabled if debug mode is enabled.
 func IsVerbose() bool {
-	verbose, _ := strconv.ParseBool(os.Getenv("SOFT_SERVE_VERBOSE"))
+	verbose, _ := strconv.ParseBool(os.Getenv("COMBINE_VERBOSE"))
 	return IsDebug() && verbose
 }
 
@@ -267,13 +267,13 @@ func parseEnv(cfg *Config) error {
 
 	// Override with environment variables
 	if err := env.ParseWithOptions(cfg, env.Options{
-		Prefix: "SOFT_SERVE_",
+		Prefix: "COMBINE_",
 	}); err != nil {
 		return fmt.Errorf("parse environment variables: %w", err)
 	}
 
 	// Merge initial admin keys from environment variables.
-	if initialAdminKeysEnv := os.Getenv("SOFT_SERVE_INITIAL_ADMIN_KEYS"); initialAdminKeysEnv != "" {
+	if initialAdminKeysEnv := os.Getenv("COMBINE_INITIAL_ADMIN_KEYS"); initialAdminKeysEnv != "" {
 		cfg.InitialAdminKeys = append(cfg.InitialAdminKeys, initialAdminKeys...)
 	}
 
@@ -310,10 +310,10 @@ func (c *Config) WriteConfig() error {
 }
 
 // DefaultDataPath returns the path to the data directory.
-// It uses the SOFT_SERVE_DATA_PATH environment variable if set, otherwise it
+// It uses the COMBINE_DATA_PATH environment variable if set, otherwise it
 // uses "data".
 func DefaultDataPath() string {
-	dp := os.Getenv("SOFT_SERVE_DATA_PATH")
+	dp := os.Getenv("COMBINE_DATA_PATH")
 	if dp == "" {
 		dp = "data"
 	}
@@ -324,7 +324,7 @@ func DefaultDataPath() string {
 // ConfigPath returns the path to the config file.
 func (c *Config) ConfigPath() string { //nolint:revive
 	// If we have a custom config location set, then use that.
-	if path := os.Getenv("SOFT_SERVE_CONFIG_LOCATION"); exist(path) {
+	if path := os.Getenv("COMBINE_CONFIG_LOCATION"); exist(path) {
 		return path
 	}
 

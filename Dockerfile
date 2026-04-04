@@ -6,8 +6,8 @@ WORKDIR /soft-serve
 VOLUME /soft-serve
 
 # Environment variables
-ENV SOFT_SERVE_DATA_PATH "/soft-serve"
-ENV SOFT_SERVE_INITIAL_ADMIN_KEYS ""
+ENV COMBINE_DATA_PATH "/soft-serve"
+ENV COMBINE_INITIAL_ADMIN_KEYS ""
 # workaround to prevent slowness in docker when running with a tty
 ENV CI "1"
 

@@ -91,7 +91,7 @@ var (
 			// This endpoint is added for testing purposes
 			// It allows us to stop the server from the test suite.
 			// This is needed since Windows doesn't support signals.
-			if testRun, _ := strconv.ParseBool(os.Getenv("SOFT_SERVE_TESTRUN")); testRun {
+			if testRun, _ := strconv.ParseBool(os.Getenv("COMBINE_TESTRUN")); testRun {
 				h := s.HTTPServer.Server.Handler
 				s.HTTPServer.Server.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					if r.URL.Path == "/__stop" && r.Method == http.MethodHead {
@@ -176,7 +176,7 @@ fi
 
 echo "Hi from Soft Serve update hook!"
 echo
-echo "Repository: $SOFT_SERVE_REPO_NAME"
+echo "Repository: $COMBINE_REPO_NAME"
 echo "RefName: $refname"
 echo "Change Type: $newrev_type"
 echo "Old SHA1: $oldrev"
