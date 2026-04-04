@@ -46,12 +46,16 @@ Integrate Passport for REST API authentication. Add repo management REST API
 Add `/v1/health` and `/ui/health` endpoints. Standalone mode (no Passport)
 remains functional for SSH-only use.
 
-## 6. Issue Tracker
+## 6. Issue Tracker ✅
+
+[Design](2026-04-04-issue-tracker-design.md) · [Plan](plans/2026-04-04-issue-tracker-plan.md)
 
 Lightweight issue tracker for standalone viability and Flow integration.
-Domain model (Issue, IssueComment), store implementations, REST API, webhook
-events. Intentionally shallow status model (`open`, `in_progress`, `closed`)
-— Flow projects richer state when composed.
+Domain model (Issue, IssueComment), store implementations (SQLite + Postgres),
+REST API at `/api/v1/repos/{repo}/issues`, webhook events (issue_opened,
+issue_status_changed, issue_closed, issue_comment). Per-repo issue numbering.
+Intentionally shallow status model (`open`, `in_progress`, `closed`) — Flow
+projects richer state when composed.
 
 ## 7. MCP Bridge
 
