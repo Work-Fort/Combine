@@ -7,9 +7,9 @@ import (
 	"runtime/debug"
 
 	"charm.land/log/v2"
-	"github.com/Work-Fort/Combine/cmd/soft/admin"
-	"github.com/Work-Fort/Combine/cmd/soft/hook"
-	"github.com/Work-Fort/Combine/cmd/soft/serve"
+	"github.com/Work-Fort/Combine/cmd/combine/admin"
+	"github.com/Work-Fort/Combine/cmd/combine/hook"
+	"github.com/Work-Fort/Combine/cmd/combine/serve"
 	"github.com/Work-Fort/Combine/pkg/config"
 	logr "github.com/Work-Fort/Combine/pkg/log"
 	"github.com/Work-Fort/Combine/pkg/version"
@@ -33,9 +33,9 @@ var (
 	CommitDate = ""
 
 	rootCmd = &cobra.Command{
-		Use:          "soft",
-		Short:        "A self-hostable Git server for the command line",
-		Long:         "Soft Serve is a self-hostable Git server for the command line.",
+		Use:          "combine",
+		Short:        "A self-hostable Git forge",
+		Long:         "Combine is a self-hostable Git forge for the WorkFort platform.",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return cmd.Help()
@@ -54,6 +54,7 @@ var (
 			}
 
 			manPage = manPage.WithSection("Copyright", "(C) 2021-2023 Charmbracelet, Inc.\n"+
+				"(C) 2026 WorkFort\n"+
 				"Released under MIT license.")
 			fmt.Println(manPage.Build(roff.NewDocument()))
 			return nil
