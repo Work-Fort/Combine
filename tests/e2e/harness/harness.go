@@ -74,8 +74,10 @@ type Daemon struct {
 	HTTPAddr    string
 	DataDir     string
 	PrivKeyPath string
+	SignJWT     func(id, username, displayName, userType string) string
 	cmd         *exec.Cmd
 	stderr      *bytes.Buffer
+	jwksStop    func()
 }
 
 // StartDaemon starts a combine server and waits for it to become ready.
@@ -97,6 +99,9 @@ func StartDaemon(t *testing.T, binary string) *Daemon {
 	sshAddr := FreePort()
 	httpAddr := FreePort()
 
+	// Start JWKS stub for Passport auth
+	jwksAddr, jwksStop, signJWT := StartJWKSStub()
+
 	cmd := exec.Command(binary, "serve")
 	cmd.Env = append(os.Environ(),
 		"COMBINE_DATA_PATH="+dataDir,
@@ -105,6 +110,8 @@ func StartDaemon(t *testing.T, binary string) *Daemon {
 		"COMBINE_HTTP_LISTEN_ADDR="+httpAddr,
 		"COMBINE_STATS_ENABLED=false",
 		"COMBINE_TESTRUN=true",
+		"COMBINE_PASSPORT_URL=http://"+jwksAddr,
+		"COMBINE_HTTP_CORS_ALLOWED_METHODS=GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS",
 	)
 
 	var stderr bytes.Buffer
@@ -119,8 +126,10 @@ func StartDaemon(t *testing.T, binary string) *Daemon {
 		HTTPAddr:    httpAddr,
 		DataDir:     dataDir,
 		PrivKeyPath: privKeyPath,
+		SignJWT:     signJWT,
 		cmd:         cmd,
 		stderr:      &stderr,
+		jwksStop:    jwksStop,
 	}
 
 	// Poll for readiness
@@ -151,6 +160,9 @@ ready:
 		case <-time.After(10 * time.Second):
 			cmd.Process.Kill()
 			<-done
+		}
+		if d.jwksStop != nil {
+			d.jwksStop()
 		}
 		if strings.Contains(stderr.String(), "DATA RACE") {
 			t.Errorf("data race detected in daemon stderr:\n%s", stderr.String())
