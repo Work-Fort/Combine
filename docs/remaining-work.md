@@ -16,7 +16,7 @@ within each section.
 - [x] Update metric/logging namespaces (`soft_serve` → `combine`)
 - [x] Fix remaining references (Dockerfile, hook filenames, SSH description)
 - [x] Replace README, run `go mod tidy`
-- [Design](plans/2026-04-03-rebranding-design.md) · [Plan](plans/2026-04-03-rebranding-plan.md)
+- [Design](2026-04-03-rebranding-design.md) · [Plan](plans/2026-04-03-rebranding-plan.md)
 
 ### E2E Test Suite
 - [ ] Test harness (build binary, start daemon, SSH key management, Git helpers)
@@ -29,7 +29,7 @@ within each section.
 - [ ] TestSSHCloneNonExistent — error on missing repo
 - [ ] TestSSHPushUnauthorized — rejected with unknown key
 - [ ] TestLFSPushPull — LFS tracked file round-trip
-- [Design](plans/2026-04-04-e2e-tests-design.md) · Plan pending
+- [Design](2026-04-04-e2e-tests-design.md) · [Plan](plans/2026-04-04-e2e-tests-plan.md)
 
 ### Remove Git Daemon Protocol
 - [ ] Strip git:// daemon (port 9418) code and config
@@ -43,7 +43,7 @@ within each section.
 - [ ] Phase E: Refactor Backend + adapters to domain types
 - [ ] Phase F: Rewrite command layer with Nexus/Hive DI
 - [ ] Phase G: Delete old packages, verify
-- [Design](plans/2026-04-03-hexagonal-architecture-design.md) · [Plan](plans/2026-04-03-hexagonal-architecture-plan.md)
+- [Design](2026-04-03-hexagonal-architecture-design.md) · [Plan](plans/2026-04-03-hexagonal-architecture-plan.md)
 
 ---
 
