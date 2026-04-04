@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Work-Fort/Combine/internal/domain"
+	"github.com/Work-Fort/Combine/internal/infra/webhook"
 	"github.com/gorilla/mux"
 )
 
@@ -148,6 +149,10 @@ func handleCreateIssue(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusCreated, issueToResponse(ctx, store, &issue))
+
+	if wh, err := webhook.NewIssueOpenedEvent(ctx, identity, repo, &issue); err == nil {
+		webhook.SendEvent(ctx, wh) //nolint:errcheck
+	}
 }
 
 func handleGetIssue(w http.ResponseWriter, r *http.Request) {
@@ -236,6 +241,8 @@ func handleUpdateIssue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	oldStatus := issue.Status
+
 	if req.Title != nil {
 		issue.Title = *req.Title
 	}
@@ -273,6 +280,17 @@ func handleUpdateIssue(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, issueToResponse(ctx, store, issue))
+
+	if req.Status != nil && domain.IssueStatus(*req.Status) != oldStatus {
+		if wh, err := webhook.NewIssueStatusChangedEvent(ctx, identity, repo, issue, string(oldStatus), *req.Status); err == nil {
+			webhook.SendEvent(ctx, wh) //nolint:errcheck
+		}
+		if issue.Status == domain.IssueStatusClosed {
+			if wh, err := webhook.NewIssueClosedEvent(ctx, identity, repo, issue, string(issue.Resolution)); err == nil {
+				webhook.SendEvent(ctx, wh) //nolint:errcheck
+			}
+		}
+	}
 }
 
 func handleListComments(w http.ResponseWriter, r *http.Request) {
@@ -363,4 +381,8 @@ func handleCreateComment(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: comment.CreatedAt,
 		UpdatedAt: comment.UpdatedAt,
 	})
+
+	if wh, err := webhook.NewIssueCommentEvent(ctx, identity, repo, issue, &comment); err == nil {
+		webhook.SendEvent(ctx, wh) //nolint:errcheck
+	}
 }
