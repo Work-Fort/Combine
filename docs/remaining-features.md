@@ -57,29 +57,35 @@ issue_status_changed, issue_closed, issue_comment). Per-repo issue numbering.
 Intentionally shallow status model (`open`, `in_progress`, `closed`) — Flow
 projects richer state when composed.
 
-## 7. MCP Bridge
+## 7. Merge Requests
 
-`combine mcp-bridge` stdio-to-HTTP bridge for Claude Code. MCP tools for
-repo management, issue CRUD, webhook configuration.
+Lightweight merge/pull request model. Source branch, target branch, status
+(open, merged, closed). Diff rendering, conflict detection, merge logic.
+REST API at `/api/v1/repos/{repo}/merge-requests`. Webhook events
+(merge_request_opened, merge_request_merged, merge_request_closed).
 
-## 8. btrfs Quota Support
-
-Per-repo btrfs subvolumes with configurable quotas. Transparent enforcement
-on Git operations with clear error messages. Quota usage exposed via API.
-Reuses patterns from Nexus's btrfs tooling.
-
-## 9. Flow Integration
+## 8. Flow Integration
 
 Combine becomes Flow's Git forge adapter. Bidirectional webhooks, status
 projection (Flow owns process state, Combine owns code state). Issue status
 in Combine is a projection of Flow's process state.
 
-## 10. Merge Requests
+## 9. MCP Bridge
 
-Lightweight merge/pull request model. Diff rendering, conflict detection,
-merge logic. Deferred because implementation scope is large and Flow v1 only
-needs issues.
+`combine mcp-bridge` stdio-to-HTTP bridge for Claude Code. MCP tools for
+repo management, issue CRUD, merge request management, webhook configuration.
+Implemented last since it wraps the full API surface.
 
-## 11. CI/CD
+## 10. CI/CD
 
 Build and deployment pipelines using Nexus.
+
+---
+
+## Deferred
+
+### btrfs Quota Support
+
+Per-repo btrfs subvolumes with configurable quotas. Deferred — requires
+capability management and sidecar binaries (elevated permissions pattern).
+Not part of the initial core feature set.
