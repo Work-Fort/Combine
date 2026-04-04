@@ -122,6 +122,9 @@ func InitViper() {
 	// Initial admin keys
 	viper.SetDefault("initial_admin_keys", []string{})
 
+	// Passport
+	viper.SetDefault("passport-url", "")
+
 	// Test run
 	viper.SetDefault("testrun", false)
 
@@ -242,6 +245,7 @@ type Config struct {
 	Jobs             JobsConfig
 	InitialAdminKeys []string
 	DataPath         string
+	PassportURL      string
 	TestRun          bool
 }
 
@@ -311,9 +315,10 @@ func FromViper() (*Config, error) {
 	}
 
 	cfg := &Config{
-		Name:     viper.GetString("name"),
-		DataPath: dataPath,
-		TestRun:  viper.GetBool("testrun"),
+		Name:        viper.GetString("name"),
+		DataPath:    dataPath,
+		PassportURL: viper.GetString("passport-url"),
+		TestRun:     viper.GetBool("testrun"),
 		SSH: SSHConfig{
 			Enabled:       viper.GetBool("ssh.enabled"),
 			ListenAddr:    viper.GetString("ssh.listen_addr"),

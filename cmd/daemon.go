@@ -129,8 +129,19 @@ func runDaemon(ctx context.Context, syncHooksFlag bool) error {
 		return fmt.Errorf("create ssh server: %w", err)
 	}
 
+	// Passport auth (optional — only enabled when passport-url is configured)
+	var passport *web.PassportAuth
+	if cfg.PassportURL != "" {
+		var passportErr error
+		passport, passportErr = web.NewPassportAuth(ctx, cfg.PassportURL, store)
+		if passportErr != nil {
+			return fmt.Errorf("init passport auth: %w", passportErr)
+		}
+		defer passport.Close()
+	}
+
 	// Create HTTP server
-	httpServer, err := web.NewHTTPServer(ctx)
+	httpServer, err := web.NewHTTPServer(ctx, passport)
 	if err != nil {
 		return fmt.Errorf("create http server: %w", err)
 	}

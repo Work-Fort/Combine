@@ -11,12 +11,21 @@ import (
 )
 
 // NewRouter returns a new HTTP router.
-func NewRouter(ctx context.Context) http.Handler {
+func NewRouter(ctx context.Context, passport *PassportAuth) http.Handler {
 	logger := log.FromContext(ctx).WithPrefix("http")
 	router := mux.NewRouter()
 
-	// Health routes
-	HealthController(ctx, router)
+	// Health routes (no auth required)
+	router.HandleFunc("/v1/health", handleHealth).Methods("GET")
+	router.HandleFunc("/ui/health", handleUIHealth).Methods("GET")
+
+	// REST API routes (Passport auth required)
+	if passport != nil {
+		api := router.PathPrefix("/api/v1").Subrouter()
+		api.Use(passport.Middleware)
+		RegisterRepoRoutes(api)
+		RegisterKeyRoutes(api)
+	}
 
 	// Git routes
 	GitController(ctx, router)

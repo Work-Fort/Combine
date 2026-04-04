@@ -19,7 +19,7 @@ type HTTPServer struct {
 }
 
 // NewHTTPServer creates a new HTTP server.
-func NewHTTPServer(ctx context.Context) (*HTTPServer, error) {
+func NewHTTPServer(ctx context.Context, passport *PassportAuth) (*HTTPServer, error) {
 	cfg := config.FromContext(ctx)
 	logger := log.FromContext(ctx)
 	s := &HTTPServer{
@@ -27,7 +27,7 @@ func NewHTTPServer(ctx context.Context) (*HTTPServer, error) {
 		cfg: cfg,
 		Server: &http.Server{
 			Addr:              cfg.HTTP.ListenAddr,
-			Handler:           NewRouter(ctx),
+			Handler:           NewRouter(ctx, passport),
 			ReadHeaderTimeout: time.Second * 10,
 			IdleTimeout:       time.Second * 10,
 			MaxHeaderBytes:    http.DefaultMaxHeaderBytes,
