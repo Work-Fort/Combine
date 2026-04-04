@@ -36,9 +36,9 @@ raw `database/sql` with modernc.org/sqlite and pgx/v5.
 
 Note: Legacy config replaced with Viper. Daemon command added.
 
-## 5. Passport Auth + Repo REST API
+## 5. Passport Auth + Repo REST API ✅
 
-[Design](2026-04-04-passport-auth-repo-api-design.md)
+[Design](2026-04-04-passport-auth-repo-api-design.md) · [Plan](plans/2026-04-04-passport-auth-repo-api-plan.md)
 
 Integrate Passport for REST API authentication. Add repo management REST API
 (`/api/v1/repos`) and SSH key management (`/api/v1/user/keys`). Replace
