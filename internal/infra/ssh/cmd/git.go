@@ -175,7 +175,14 @@ func gitRunE(cmd *cobra.Command, args []string) error {
 	pk := sshutils.PublicKeyFromContext(ctx)
 	ak := sshutils.MarshalAuthorizedKey(pk)
 	user := domain.UserFromContext(ctx)
-	accessLevel := be.AccessLevelForUser(ctx, name, user)
+	// Check access level: use public key check first (handles admin keys
+	// for users not in the database), fall back to user-based check.
+	var accessLevel domain.AccessLevel
+	if pk != nil {
+		accessLevel = be.AccessLevelByPublicKey(ctx, name, pk)
+	} else {
+		accessLevel = be.AccessLevelForUser(ctx, name, user)
+	}
 	// git bare repositories should end in ".git"
 	repoDir := name + ".git"
 	reposDir := filepath.Join(cfg.DataPath, "repos")
