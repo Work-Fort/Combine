@@ -177,6 +177,83 @@ func (c *APIClient) AddKey(t *testing.T, publicKey string) map[string]any {
 	return c.decodeJSON(t, resp)
 }
 
+// CreateIssue creates an issue via the REST API.
+func (c *APIClient) CreateIssue(t *testing.T, repo, title, body string) map[string]any {
+	t.Helper()
+	resp := c.DoRequest(t, "POST", fmt.Sprintf("/api/v1/repos/%s/issues", repo), map[string]any{
+		"title": title,
+		"body":  body,
+	})
+	if resp.StatusCode != http.StatusCreated {
+		b, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		t.Fatalf("CreateIssue %s: status %d, body: %s", repo, resp.StatusCode, b)
+	}
+	return c.decodeJSON(t, resp)
+}
+
+// GetIssue retrieves an issue by repo and number.
+func (c *APIClient) GetIssue(t *testing.T, repo string, number int) map[string]any {
+	t.Helper()
+	resp := c.DoRequest(t, "GET", fmt.Sprintf("/api/v1/repos/%s/issues/%d", repo, number), nil)
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		t.Fatalf("GetIssue %s#%d: status %d, body: %s", repo, number, resp.StatusCode, b)
+	}
+	return c.decodeJSON(t, resp)
+}
+
+// ListIssues lists issues for a repo.
+func (c *APIClient) ListIssues(t *testing.T, repo string) []map[string]any {
+	t.Helper()
+	resp := c.DoRequest(t, "GET", fmt.Sprintf("/api/v1/repos/%s/issues", repo), nil)
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		t.Fatalf("ListIssues %s: status %d, body: %s", repo, resp.StatusCode, b)
+	}
+	return c.decodeJSONArray(t, resp)
+}
+
+// UpdateIssue updates an issue.
+func (c *APIClient) UpdateIssue(t *testing.T, repo string, number int, updates map[string]any) map[string]any {
+	t.Helper()
+	resp := c.DoRequest(t, "PATCH", fmt.Sprintf("/api/v1/repos/%s/issues/%d", repo, number), updates)
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		t.Fatalf("UpdateIssue %s#%d: status %d, body: %s", repo, number, resp.StatusCode, b)
+	}
+	return c.decodeJSON(t, resp)
+}
+
+// CreateComment creates a comment on an issue.
+func (c *APIClient) CreateComment(t *testing.T, repo string, number int, body string) map[string]any {
+	t.Helper()
+	resp := c.DoRequest(t, "POST", fmt.Sprintf("/api/v1/repos/%s/issues/%d/comments", repo, number), map[string]any{
+		"body": body,
+	})
+	if resp.StatusCode != http.StatusCreated {
+		b, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		t.Fatalf("CreateComment %s#%d: status %d, body: %s", repo, number, resp.StatusCode, b)
+	}
+	return c.decodeJSON(t, resp)
+}
+
+// ListComments lists comments on an issue.
+func (c *APIClient) ListComments(t *testing.T, repo string, number int) []map[string]any {
+	t.Helper()
+	resp := c.DoRequest(t, "GET", fmt.Sprintf("/api/v1/repos/%s/issues/%d/comments", repo, number), nil)
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		t.Fatalf("ListComments %s#%d: status %d, body: %s", repo, number, resp.StatusCode, b)
+	}
+	return c.decodeJSONArray(t, resp)
+}
+
 // DeleteKey deletes an SSH key by ID.
 func (c *APIClient) DeleteKey(t *testing.T, keyID string) {
 	t.Helper()

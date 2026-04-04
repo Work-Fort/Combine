@@ -411,3 +411,105 @@ func TestRESTSSHKeys(t *testing.T) {
 		t.Errorf("expected 0 keys after delete, got %d", len(keys))
 	}
 }
+
+// --- Issue Tracker Tests ---
+
+func TestIssueCreate(t *testing.T) {
+	d := harness.StartDaemon(t, combineBin)
+	client := d.APIClient(t, "testuser")
+	client.CreateRepo(t, "issue-test", false)
+
+	issue := client.CreateIssue(t, "issue-test", "Bug report", "Something is broken")
+	if issue["number"] != float64(1) {
+		t.Errorf("number = %v, want 1", issue["number"])
+	}
+	if issue["status"] != "open" {
+		t.Errorf("status = %v, want open", issue["status"])
+	}
+}
+
+func TestIssuePerRepoNumbering(t *testing.T) {
+	d := harness.StartDaemon(t, combineBin)
+	client := d.APIClient(t, "testuser")
+	client.CreateRepo(t, "repo-a", false)
+	client.CreateRepo(t, "repo-b", false)
+
+	a1 := client.CreateIssue(t, "repo-a", "Issue A1", "")
+	b1 := client.CreateIssue(t, "repo-b", "Issue B1", "")
+	a2 := client.CreateIssue(t, "repo-a", "Issue A2", "")
+
+	if a1["number"] != float64(1) {
+		t.Errorf("a1 number = %v", a1["number"])
+	}
+	if b1["number"] != float64(1) {
+		t.Errorf("b1 number = %v", b1["number"])
+	}
+	if a2["number"] != float64(2) {
+		t.Errorf("a2 number = %v", a2["number"])
+	}
+}
+
+func TestIssueListFilter(t *testing.T) {
+	d := harness.StartDaemon(t, combineBin)
+	client := d.APIClient(t, "testuser")
+	client.CreateRepo(t, "filter-test", false)
+
+	client.CreateIssue(t, "filter-test", "Open issue", "")
+	client.UpdateIssue(t, "filter-test", 1, map[string]any{"status": "closed", "resolution": "fixed"})
+	client.CreateIssue(t, "filter-test", "Another open", "")
+
+	all := client.ListIssues(t, "filter-test")
+	if len(all) != 2 {
+		t.Errorf("expected 2 issues, got %d", len(all))
+	}
+}
+
+func TestIssueComments(t *testing.T) {
+	d := harness.StartDaemon(t, combineBin)
+	client := d.APIClient(t, "testuser")
+	client.CreateRepo(t, "comment-test", false)
+	client.CreateIssue(t, "comment-test", "Test issue", "")
+
+	comment := client.CreateComment(t, "comment-test", 1, "First comment")
+	if comment["body"] != "First comment" {
+		t.Errorf("body = %v", comment["body"])
+	}
+
+	comments := client.ListComments(t, "comment-test", 1)
+	if len(comments) != 1 {
+		t.Errorf("expected 1 comment, got %d", len(comments))
+	}
+}
+
+func TestIssueStatusTransitions(t *testing.T) {
+	d := harness.StartDaemon(t, combineBin)
+	client := d.APIClient(t, "testuser")
+	client.CreateRepo(t, "status-test", false)
+	client.CreateIssue(t, "status-test", "Test issue", "")
+
+	// Open -> in_progress
+	updated := client.UpdateIssue(t, "status-test", 1, map[string]any{"status": "in_progress"})
+	if updated["status"] != "in_progress" {
+		t.Errorf("status = %v", updated["status"])
+	}
+
+	// in_progress -> closed
+	updated = client.UpdateIssue(t, "status-test", 1, map[string]any{
+		"status": "closed", "resolution": "fixed",
+	})
+	if updated["status"] != "closed" {
+		t.Errorf("status = %v", updated["status"])
+	}
+	if updated["closed_at"] == nil {
+		t.Error("closed_at should be set")
+	}
+
+	// closed -> open (reopen)
+	updated = client.UpdateIssue(t, "status-test", 1, map[string]any{"status": "open"})
+	if updated["status"] != "open" {
+		t.Errorf("status = %v", updated["status"])
+	}
+	if updated["closed_at"] != nil {
+		t.Error("closed_at should be cleared on reopen")
+	}
+}
