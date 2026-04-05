@@ -4,7 +4,7 @@
 
 **Goal:** Add git operations for PR diffs, mergeability checks, and merge execution (merge/squash/rebase). Expose diff/commits/files/merge API endpoints. Parse commit keywords to auto-close issues. Fire PR webhook events.
 
-**Architecture:** Git operations in `internal/infra/git/` wrap shell commands for merge-tree and merge execution. Backend methods in `internal/app/backend/` orchestrate merge logic. REST handlers in `internal/infra/httpapi/`. Webhook events follow the existing issue pattern.
+**Architecture:** Git operations in `internal/infra/git/` wrap shell commands for merge-tree and merge execution. Backend methods in `internal/app/backend/` orchestrate all PR-related git operations (diff, merge, mergeability). REST handlers in `internal/infra/httpapi/` call Backend methods only — they never import `internal/infra/git/` directly. Dependency flow: `httpapi → backend → git`. Webhook events follow the existing issue pattern.
 
 **Tech Stack:** Go, git CLI (merge-tree, commit-tree, merge, rebase), git-module (MergeBase, Diff, Log), regexp for keyword parsing
 
@@ -105,6 +105,18 @@ func (r *Repository) ChangedFilesBetween(base, head string) ([]ChangedFile, erro
     return files, nil
 }
 
+// ShowRefVerify resolves a fully-qualified ref to its commit hash.
+// Wraps `git rev-parse --verify <ref>`.
+func (r *Repository) ShowRefVerify(ref string) (string, error) {
+    cmd := exec.Command("git", "rev-parse", "--verify", ref)
+    cmd.Dir = r.Path
+    out, err := cmd.Output()
+    if err != nil {
+        return "", fmt.Errorf("rev-parse --verify %s: %w", ref, err)
+    }
+    return strings.TrimSpace(string(out)), nil
+}
+
 // IsMergeable checks if head can be cleanly merged into base using git merge-tree.
 // Requires Git >= 2.38.
 func (r *Repository) IsMergeable(base, head string) (bool, error) {
@@ -155,8 +167,9 @@ type MergeResult struct {
 // Returns the merge commit hash.
 func (r *Repository) MergeBranches(base, head, message string) (*MergeResult, error) {
     // Get the result tree from merge-tree.
-    out, err := exec.Command("git", "merge-tree", "--write-tree", base, head).
-        CombinedOutput()
+    mtCmd := exec.Command("git", "merge-tree", "--write-tree", base, head)
+    mtCmd.Dir = r.Path
+    out, err := mtCmd.CombinedOutput()
     if err != nil {
         return nil, fmt.Errorf("merge-tree failed (conflicts?): %w: %s", err, out)
     }
@@ -200,8 +213,9 @@ func (r *Repository) MergeBranches(base, head, message string) (*MergeResult, er
 // Creates a single commit on base with all changes from head.
 func (r *Repository) SquashBranches(base, head, message string) (*MergeResult, error) {
     // Get the result tree.
-    out, err := exec.Command("git", "merge-tree", "--write-tree", base, head).
-        CombinedOutput()
+    mtCmd := exec.Command("git", "merge-tree", "--write-tree", base, head)
+    mtCmd.Dir = r.Path
+    out, err := mtCmd.CombinedOutput()
     if err != nil {
         return nil, fmt.Errorf("merge-tree failed: %w: %s", err, out)
     }
@@ -263,14 +277,97 @@ func (r *Repository) RebaseBranches(base, head string) (*MergeResult, error) {
 
 ---
 
-## Phase C: Merge API Endpoint
+## Phase C: Backend Methods for PR Git Operations
 
-### Task 3: Add merge endpoint and update PR CRUD with mergeable status
+### Task 3: Add PR-related Backend methods
+
+**Files:**
+- Create: `internal/app/backend/pull_request.go`
+
+All git operations for PRs must go through Backend to maintain the hexagonal architecture. HTTP handlers must never import `internal/infra/git/` directly. The dependency flow is: `httpapi → backend → git`.
+
+```go
+package backend
+
+import (
+    "context"
+    "fmt"
+    "time"
+
+    "github.com/Work-Fort/Combine/internal/domain"
+    "github.com/Work-Fort/Combine/internal/infra/git"
+)
+
+// IsPullRequestMergeable checks if a PR can be cleanly merged.
+func (b *Backend) IsPullRequestMergeable(ctx context.Context, repoName, source, target string) (bool, error) {
+    r, err := b.OpenRepo(repoName)
+    if err != nil {
+        return false, fmt.Errorf("open repo: %w", err)
+    }
+    return r.IsMergeable(target, source)
+}
+
+// MergePullRequest performs the git merge for a PR using the specified strategy.
+func (b *Backend) MergePullRequest(ctx context.Context, repoName, source, target string, method domain.MergeMethod, message string) (*git.MergeResult, error) {
+    r, err := b.OpenRepo(repoName)
+    if err != nil {
+        return nil, fmt.Errorf("open repo: %w", err)
+    }
+
+    switch method {
+    case domain.MergeMethodMerge:
+        return r.MergeBranches(target, source, message)
+    case domain.MergeMethodSquash:
+        return r.SquashBranches(target, source, message)
+    case domain.MergeMethodRebase:
+        return r.RebaseBranches(target, source)
+    default:
+        return nil, fmt.Errorf("unsupported merge method: %s", method)
+    }
+}
+
+// DiffPullRequest returns the diff between the PR's source and target branches.
+func (b *Backend) DiffPullRequest(ctx context.Context, repoName, source, target string) (*git.Diff, error) {
+    r, err := b.OpenRepo(repoName)
+    if err != nil {
+        return nil, fmt.Errorf("open repo: %w", err)
+    }
+    return r.DiffBranches(target, source)
+}
+
+// PullRequestCommits returns commits between the PR's target and source branches.
+func (b *Backend) PullRequestCommits(ctx context.Context, repoName, source, target string) ([]*gitmodule.Commit, error) {
+    r, err := b.OpenRepo(repoName)
+    if err != nil {
+        return nil, fmt.Errorf("open repo: %w", err)
+    }
+    return r.CommitsBetween(target, source)
+}
+
+// PullRequestFiles returns the list of changed files in a PR.
+func (b *Backend) PullRequestFiles(ctx context.Context, repoName, source, target string) ([]git.ChangedFile, error) {
+    r, err := b.OpenRepo(repoName)
+    if err != nil {
+        return nil, fmt.Errorf("open repo: %w", err)
+    }
+    return r.ChangedFilesBetween(target, source)
+}
+```
+
+**Verification:** `go build ./...` compiles.
+
+---
+
+## Phase D: Merge API Endpoint
+
+### Task 4: Add merge endpoint and update PR CRUD with mergeable status
 
 **Files:**
 - Modify: `internal/infra/httpapi/api_pulls.go`
 
 **Step 1: Add merge request/response types and the merge handler:**
+
+Note: Handlers use `backend.FromContext(ctx)` (from `internal/app/backend/context.go`) to get the Backend. They never import `internal/infra/git/`.
 
 ```go
 type mergePullRequestRequest struct {
@@ -286,6 +383,7 @@ func handleMergePullRequest(w http.ResponseWriter, r *http.Request) {
         return
     }
     store := domain.StoreFromContext(ctx)
+    be := backend.FromContext(ctx)
     repoName := mux.Vars(r)["repo"]
     number, _ := strconv.ParseInt(mux.Vars(r)["number"], 10, 64)
 
@@ -318,16 +416,8 @@ func handleMergePullRequest(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    // Open the git repo and perform the merge.
-    be := domain.BackendFromContext(ctx)
-    gitRepo, err := be.OpenRepo(repoName)
-    if err != nil {
-        writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to open repository"})
-        return
-    }
-
-    // Check mergeability.
-    mergeable, err := gitRepo.IsMergeable(pr.TargetBranch, pr.SourceBranch)
+    // Check mergeability via Backend.
+    mergeable, err := be.IsPullRequestMergeable(ctx, repoName, pr.SourceBranch, pr.TargetBranch)
     if err != nil {
         writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to check mergeability"})
         return
@@ -343,16 +433,8 @@ func handleMergePullRequest(w http.ResponseWriter, r *http.Request) {
         message = fmt.Sprintf("Merge pull request #%d from %s\n\n%s", pr.Number, pr.SourceBranch, pr.Title)
     }
 
-    // Execute merge.
-    switch method {
-    case domain.MergeMethodMerge:
-        _, err = gitRepo.MergeBranches(pr.TargetBranch, pr.SourceBranch, message)
-    case domain.MergeMethodSquash:
-        _, err = gitRepo.SquashBranches(pr.TargetBranch, pr.SourceBranch, message)
-    case domain.MergeMethodRebase:
-        _, err = gitRepo.RebaseBranches(pr.TargetBranch, pr.SourceBranch)
-    }
-    if err != nil {
+    // Execute merge via Backend.
+    if _, err := be.MergePullRequest(ctx, repoName, pr.SourceBranch, pr.TargetBranch, method, message); err != nil {
         writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "merge failed: " + err.Error()})
         return
     }
@@ -369,7 +451,7 @@ func handleMergePullRequest(w http.ResponseWriter, r *http.Request) {
     }
 
     // Auto-close referenced issues.
-    closeReferencedIssues(ctx, store, repo.ID, pr.Body, identity)
+    closeReferencedIssues(ctx, store, repo, pr.Body, identity)
 
     writeJSON(w, http.StatusOK, prToResponse(ctx, store, pr))
 
@@ -387,18 +469,16 @@ Update `pullRequestResponse` to include:
 Mergeable *bool `json:"mergeable,omitempty"`
 ```
 
-In `handleGetPullRequest`, after fetching the PR, if status is open, compute mergeability:
+In `handleGetPullRequest`, after fetching the PR, if status is open, compute mergeability via Backend:
 ```go
 if pr.Status == domain.PullRequestStatusOpen {
-    be := domain.BackendFromContext(ctx)
-    if gitRepo, err := be.OpenRepo(repoName); err == nil {
-        mergeable, err := gitRepo.IsMergeable(pr.TargetBranch, pr.SourceBranch)
-        if err == nil {
-            resp := prToResponse(ctx, store, pr)
-            resp.Mergeable = &mergeable
-            writeJSON(w, http.StatusOK, resp)
-            return
-        }
+    be := backend.FromContext(ctx)
+    mergeable, err := be.IsPullRequestMergeable(ctx, repoName, pr.SourceBranch, pr.TargetBranch)
+    if err == nil {
+        resp := prToResponse(ctx, store, pr)
+        resp.Mergeable = &mergeable
+        writeJSON(w, http.StatusOK, resp)
+        return
     }
 }
 ```
@@ -413,19 +493,22 @@ r.HandleFunc("/repos/{repo:.+}/pulls/{number:[0-9]+}/merge", handleMergePullRequ
 
 ---
 
-## Phase D: Diff, Commits, and Files Endpoints
+## Phase E: Diff, Commits, and Files Endpoints
 
-### Task 4: Add diff/commits/files API endpoints
+### Task 5: Add diff/commits/files API endpoints
 
 **Files:**
 - Modify: `internal/infra/httpapi/api_pulls.go`
 
 **Step 1: Add the three diff-related handlers:**
 
+All handlers call Backend methods — no direct git imports.
+
 ```go
 func handlePullRequestDiff(w http.ResponseWriter, r *http.Request) {
     ctx := r.Context()
     store := domain.StoreFromContext(ctx)
+    be := backend.FromContext(ctx)
     repoName := mux.Vars(r)["repo"]
     number, _ := strconv.ParseInt(mux.Vars(r)["number"], 10, 64)
 
@@ -441,14 +524,7 @@ func handlePullRequestDiff(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    be := domain.BackendFromContext(ctx)
-    gitRepo, err := be.OpenRepo(repoName)
-    if err != nil {
-        writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to open repository"})
-        return
-    }
-
-    diff, err := gitRepo.DiffBranches(pr.TargetBranch, pr.SourceBranch)
+    diff, err := be.DiffPullRequest(ctx, repoName, pr.SourceBranch, pr.TargetBranch)
     if err != nil {
         writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to compute diff"})
         return
@@ -470,6 +546,7 @@ type commitResponse struct {
 func handlePullRequestCommits(w http.ResponseWriter, r *http.Request) {
     ctx := r.Context()
     store := domain.StoreFromContext(ctx)
+    be := backend.FromContext(ctx)
     repoName := mux.Vars(r)["repo"]
     number, _ := strconv.ParseInt(mux.Vars(r)["number"], 10, 64)
 
@@ -485,14 +562,7 @@ func handlePullRequestCommits(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    be := domain.BackendFromContext(ctx)
-    gitRepo, err := be.OpenRepo(repoName)
-    if err != nil {
-        writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to open repository"})
-        return
-    }
-
-    commits, err := gitRepo.CommitsBetween(pr.TargetBranch, pr.SourceBranch)
+    commits, err := be.PullRequestCommits(ctx, repoName, pr.SourceBranch, pr.TargetBranch)
     if err != nil {
         writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to list commits"})
         return
@@ -513,6 +583,7 @@ func handlePullRequestCommits(w http.ResponseWriter, r *http.Request) {
 func handlePullRequestFiles(w http.ResponseWriter, r *http.Request) {
     ctx := r.Context()
     store := domain.StoreFromContext(ctx)
+    be := backend.FromContext(ctx)
     repoName := mux.Vars(r)["repo"]
     number, _ := strconv.ParseInt(mux.Vars(r)["number"], 10, 64)
 
@@ -528,14 +599,7 @@ func handlePullRequestFiles(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    be := domain.BackendFromContext(ctx)
-    gitRepo, err := be.OpenRepo(repoName)
-    if err != nil {
-        writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to open repository"})
-        return
-    }
-
-    files, err := gitRepo.ChangedFilesBetween(pr.TargetBranch, pr.SourceBranch)
+    files, err := be.PullRequestFiles(ctx, repoName, pr.SourceBranch, pr.TargetBranch)
     if err != nil {
         writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to list changed files"})
         return
@@ -557,9 +621,9 @@ r.HandleFunc("/repos/{repo:.+}/pulls/{number:[0-9]+}/files", handlePullRequestFi
 
 ---
 
-## Phase E: Commit Keyword Parsing
+## Phase F: Commit Keyword Parsing
 
-### Task 5: Add commit keyword parser and auto-close logic
+### Task 6: Add commit keyword parser and auto-close logic
 
 **Files:**
 - Create: `internal/infra/git/keywords.go`
@@ -599,31 +663,6 @@ func ParseClosingKeywords(text string) []int64 {
 **Step 2: Add `closeReferencedIssues` helper in `api_pulls.go`:**
 
 ```go
-func closeReferencedIssues(ctx context.Context, store domain.Store, repoID int64, text string, identity *domain.Identity) {
-    nums := gitpkg.ParseClosingKeywords(text)
-    for _, num := range nums {
-        issue, err := store.GetIssueByNumber(ctx, repoID, num)
-        if err != nil || issue.Status == domain.IssueStatusClosed {
-            continue
-        }
-        now := time.Now()
-        issue.Status = domain.IssueStatusClosed
-        issue.Resolution = domain.IssueResolutionFixed
-        issue.ClosedAt = &now
-        if err := store.UpdateIssue(ctx, issue); err != nil {
-            continue
-        }
-
-        // Fire issue closed webhook.
-        repo, err := store.GetRepoByName(ctx, "") // Need repo — get from context or pass it.
-        // Actually, pass repo as parameter to this function.
-    }
-}
-```
-
-Adjust signature to accept `*domain.Repo`:
-
-```go
 func closeReferencedIssues(ctx context.Context, store domain.Store, repo *domain.Repo, text string, identity *domain.Identity) {
     nums := gitpkg.ParseClosingKeywords(text)
     for _, num := range nums {
@@ -651,9 +690,9 @@ Call from `handleMergePullRequest` after merge succeeds, and also parse each com
 
 ---
 
-## Phase F: PR Webhook Events
+## Phase G: PR Webhook Events
 
-### Task 6: Add PR webhook event types and constructors
+### Task 7: Add PR webhook event types and constructors
 
 **Files:**
 - Modify: `internal/infra/webhook/event.go`
@@ -677,7 +716,31 @@ EventPullRequestMerged Event = 13
 EventPullRequestReview Event = 14
 ```
 
-Also update the `String()` method and any event name mapping.
+Also update `Events()`, `eventStrings`, and `stringEvent` to include the new events:
+
+Add to the `Events()` function's return slice:
+```go
+EventPullRequestOpened,
+EventPullRequestClosed,
+EventPullRequestMerged,
+EventPullRequestReview,
+```
+
+Add to `eventStrings`:
+```go
+EventPullRequestOpened:  "pull_request_opened",
+EventPullRequestClosed:  "pull_request_closed",
+EventPullRequestMerged:  "pull_request_merged",
+EventPullRequestReview:  "pull_request_review",
+```
+
+Add to `stringEvent`:
+```go
+"pull_request_opened":  EventPullRequestOpened,
+"pull_request_closed":  EventPullRequestClosed,
+"pull_request_merged":  EventPullRequestMerged,
+"pull_request_review":  EventPullRequestReview,
+```
 
 **Step 2: Create `pull_request.go`:**
 
@@ -804,16 +867,16 @@ Add webhook calls to:
 
 ---
 
-## Phase G: Backend OpenRepo Access from HTTP Context
+## Phase H: Verify Backend Context Availability
 
-### Task 7: Ensure Backend is accessible from HTTP request context
+### Task 8: Ensure Backend is in the HTTP request context
 
 **Files:**
-- Check: `internal/domain/context.go` or equivalent
+- Check: `internal/app/backend/context.go`
 
-The merge and diff handlers need to call `be.OpenRepo(repoName)`. Verify that the Backend is available in the request context (similar to how `domain.StoreFromContext(ctx)` works). If not, add `BackendFromContext` and set it in the context middleware.
+The Backend is already available via `backend.FromContext(ctx)` (defined in `internal/app/backend/context.go`), with `backend.WithContext(ctx, b)` to set it. Verify that the HTTP middleware sets Backend in the request context using `backend.WithContext`. If not, add it to the middleware that sets up Store context.
 
-If Backend is not in context, an alternative is to have the handlers accept a `backend` parameter via closure or struct, similar to how some Go HTTP frameworks work. Follow the existing pattern — if store is in context, add backend the same way.
+All HTTP handlers in this plan use `backend.FromContext(ctx)` — **not** `domain.BackendFromContext(ctx)` (which does not exist). The import is `"github.com/Work-Fort/Combine/internal/app/backend"`.
 
 **Verification:** Merge endpoint works end-to-end.
 

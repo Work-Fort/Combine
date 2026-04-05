@@ -125,31 +125,7 @@ func nextNumber(ctx context.Context, q querier, repoID int64) (int64, error) {
 }
 ```
 
-**Note on SQLite RETURNING:** If the SQLite version doesn't support `RETURNING`, use two statements:
-
-```go
-func nextNumber(ctx context.Context, q querier, repoID int64) (int64, error) {
-    _, err := q.ExecContext(ctx,
-        `INSERT OR IGNORE INTO repo_counters (repo_id, next_number) VALUES (?, 1)`, repoID)
-    if err != nil {
-        return 0, err
-    }
-
-    var num int64
-    err = q.QueryRowContext(ctx,
-        `SELECT next_number FROM repo_counters WHERE repo_id = ?`, repoID).Scan(&num)
-    if err != nil {
-        return 0, err
-    }
-
-    _, err = q.ExecContext(ctx,
-        `UPDATE repo_counters SET next_number = ? WHERE repo_id = ?`, num+1, repoID)
-    if err != nil {
-        return 0, err
-    }
-    return num, nil
-}
-```
+**Note:** modernc.org/sqlite supports `RETURNING` (SQLite 3.35+). No fallback needed.
 
 **Step 3: Refactor `createIssue` in `internal/infra/sqlite/issue.go`**
 
@@ -813,7 +789,37 @@ func nextNumber(ctx context.Context, q querier, repoID int64) (int64, error) {
 }
 ```
 
-Also refactor the Postgres issue creation (if it exists) to use `nextNumber`, mirroring the SQLite change.
+**Step 2: Refactor Postgres issue creation to use `nextNumber`**
+
+In `internal/infra/postgres/issue.go`, replace the `MAX(number) + 1` subquery with `nextNumber`, mirroring the SQLite change:
+
+Old:
+```go
+res, err := q.ExecContext(ctx,
+    `INSERT INTO issues (number, repo_id, author_id, title, body, status, resolution, assignee_id, updated_at)
+     VALUES ((SELECT COALESCE(MAX(number), 0) + 1 FROM issues WHERE repo_id = $1),
+             $2, $3, $4, $5, $6, $7, $8, NOW())`,
+    issue.RepoID, issue.RepoID, issue.AuthorID, issue.Title, issue.Body,
+    issue.Status, issue.Resolution, issue.AssigneeID,
+)
+```
+
+New:
+```go
+num, err := nextNumber(ctx, q, issue.RepoID)
+if err != nil {
+    return err
+}
+
+res, err := q.ExecContext(ctx,
+    `INSERT INTO issues (number, repo_id, author_id, title, body, status, resolution, assignee_id, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())`,
+    num, issue.RepoID, issue.AuthorID, issue.Title, issue.Body,
+    issue.Status, issue.Resolution, issue.AssigneeID,
+)
+```
+
+Set `issue.Number = num` directly instead of reading it back.
 
 **Verification:** `go build ./...` compiles.
 

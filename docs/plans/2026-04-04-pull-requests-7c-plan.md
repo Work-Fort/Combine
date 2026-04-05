@@ -41,7 +41,7 @@ type PullRequestReview struct {
     AuthorID  string      // FK to identities.id
     State     ReviewState
     Body      string
-    Comments  []ReviewComment // Populated on read
+    Comments  []*ReviewComment // Populated on read
     CreatedAt time.Time
 }
 
@@ -122,9 +122,9 @@ func createReview(ctx context.Context, q querier, review *domain.PullRequestRevi
     review.ID = id
 
     // Insert review comments.
-    for i := range review.Comments {
-        review.Comments[i].ReviewID = id
-        if err := createReviewComment(ctx, q, &review.Comments[i]); err != nil {
+    for _, c := range review.Comments {
+        c.ReviewID = id
+        if err := createReviewComment(ctx, q, c); err != nil {
             return err
         }
     }
@@ -172,7 +172,7 @@ func createReviewComment(ctx context.Context, q querier, comment *domain.ReviewC
     return row.Scan(&comment.CreatedAt, &comment.UpdatedAt)
 }
 
-func listReviewComments(ctx context.Context, q querier, reviewID int64) ([]domain.ReviewComment, error) {
+func listReviewComments(ctx context.Context, q querier, reviewID int64) ([]*domain.ReviewComment, error) {
     rows, err := q.QueryContext(ctx,
         `SELECT id, review_id, path, line, side, body, created_at, updated_at
          FROM review_comments WHERE review_id = ? ORDER BY path, line`, reviewID)
@@ -181,13 +181,13 @@ func listReviewComments(ctx context.Context, q querier, reviewID int64) ([]domai
     }
     defer rows.Close()
 
-    var comments []domain.ReviewComment
+    var comments []*domain.ReviewComment
     for rows.Next() {
         var c domain.ReviewComment
         if err := rows.Scan(&c.ID, &c.ReviewID, &c.Path, &c.Line, &c.Side, &c.Body, &c.CreatedAt, &c.UpdatedAt); err != nil {
             return nil, err
         }
-        comments = append(comments, c)
+        comments = append(comments, &c)
     }
     return comments, rows.Err()
 }
@@ -206,7 +206,7 @@ func (s *Store) CreateReviewComment(ctx context.Context, comment *domain.ReviewC
     return createReviewComment(ctx, s.q(), comment)
 }
 
-func (s *Store) ListReviewComments(ctx context.Context, reviewID int64) ([]domain.ReviewComment, error) {
+func (s *Store) ListReviewComments(ctx context.Context, reviewID int64) ([]*domain.ReviewComment, error) {
     return listReviewComments(ctx, s.q(), reviewID)
 }
 
@@ -224,7 +224,7 @@ func (ts *txStore) CreateReviewComment(ctx context.Context, comment *domain.Revi
     return createReviewComment(ctx, ts.q(), comment)
 }
 
-func (ts *txStore) ListReviewComments(ctx context.Context, reviewID int64) ([]domain.ReviewComment, error) {
+func (ts *txStore) ListReviewComments(ctx context.Context, reviewID int64) ([]*domain.ReviewComment, error) {
     return listReviewComments(ctx, ts.q(), reviewID)
 }
 ```
@@ -410,7 +410,7 @@ func handleSubmitReview(w http.ResponseWriter, r *http.Request) {
         if side == "" {
             side = "right"
         }
-        review.Comments = append(review.Comments, domain.ReviewComment{
+        review.Comments = append(review.Comments, &domain.ReviewComment{
             Path: c.Path,
             Line: c.Line,
             Side: side,
