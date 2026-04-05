@@ -366,6 +366,69 @@ func (c *APIClient) GetPullRequestFiles(t *testing.T, repo string, number int) [
 	return c.decodeJSONArray(t, resp)
 }
 
+// CreateWebhook creates a webhook via the REST API.
+func (c *APIClient) CreateWebhook(t *testing.T, repo string, url string, events []string) map[string]any {
+	t.Helper()
+	body := map[string]any{
+		"url":    url,
+		"events": events,
+		"active": true,
+	}
+	resp := c.DoRequest(t, "POST", "/api/v1/repos/"+repo+"/webhooks", body)
+	if resp.StatusCode != http.StatusCreated {
+		b, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		t.Fatalf("CreateWebhook: status %d, body: %s", resp.StatusCode, b)
+	}
+	return c.decodeJSON(t, resp)
+}
+
+// ListWebhooks lists webhooks for a repo.
+func (c *APIClient) ListWebhooks(t *testing.T, repo string) []map[string]any {
+	t.Helper()
+	resp := c.DoRequest(t, "GET", "/api/v1/repos/"+repo+"/webhooks", nil)
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		t.Fatalf("ListWebhooks: status %d, body: %s", resp.StatusCode, b)
+	}
+	return c.decodeJSONArray(t, resp)
+}
+
+// GetWebhook retrieves a webhook by ID.
+func (c *APIClient) GetWebhook(t *testing.T, repo string, id int64) map[string]any {
+	t.Helper()
+	resp := c.DoRequest(t, "GET", fmt.Sprintf("/api/v1/repos/%s/webhooks/%d", repo, id), nil)
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		t.Fatalf("GetWebhook: status %d, body: %s", resp.StatusCode, b)
+	}
+	return c.decodeJSON(t, resp)
+}
+
+// UpdateWebhook updates a webhook.
+func (c *APIClient) UpdateWebhook(t *testing.T, repo string, id int64, body map[string]any) map[string]any {
+	t.Helper()
+	resp := c.DoRequest(t, "PATCH", fmt.Sprintf("/api/v1/repos/%s/webhooks/%d", repo, id), body)
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		t.Fatalf("UpdateWebhook: status %d, body: %s", resp.StatusCode, b)
+	}
+	return c.decodeJSON(t, resp)
+}
+
+// DeleteWebhook deletes a webhook.
+func (c *APIClient) DeleteWebhook(t *testing.T, repo string, id int64) {
+	t.Helper()
+	resp := c.DoRequest(t, "DELETE", fmt.Sprintf("/api/v1/repos/%s/webhooks/%d", repo, id), nil)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("DeleteWebhook: status %d, want 204", resp.StatusCode)
+	}
+}
+
 // DeleteKey deletes an SSH key by ID.
 func (c *APIClient) DeleteKey(t *testing.T, keyID string) {
 	t.Helper()

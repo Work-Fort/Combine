@@ -822,3 +822,76 @@ func TestPullRequestAutoCloseIssue(t *testing.T) {
 		t.Errorf("issue status = %v, want closed", issue["status"])
 	}
 }
+
+func TestWebhookCRUD(t *testing.T) {
+	d := harness.StartDaemon(t, combineBin)
+	client := d.APIClient(t, "testuser")
+	client.CreateRepo(t, "webhook-test", false)
+
+	// Create webhook
+	wh := client.CreateWebhook(t, "webhook-test", "http://example.com/hook", []string{"push", "issue_opened"})
+	if wh["url"] != "http://example.com/hook" {
+		t.Errorf("url = %v", wh["url"])
+	}
+	events, _ := wh["events"].([]any)
+	if len(events) != 2 {
+		t.Errorf("expected 2 events, got %d", len(events))
+	}
+	if wh["active"] != true {
+		t.Errorf("active = %v", wh["active"])
+	}
+
+	whID := int64(wh["id"].(float64))
+
+	// Get webhook
+	got := client.GetWebhook(t, "webhook-test", whID)
+	if got["url"] != "http://example.com/hook" {
+		t.Errorf("get url = %v", got["url"])
+	}
+
+	// List webhooks
+	list := client.ListWebhooks(t, "webhook-test")
+	if len(list) != 1 {
+		t.Errorf("expected 1 webhook, got %d", len(list))
+	}
+
+	// Update webhook
+	updated := client.UpdateWebhook(t, "webhook-test", whID, map[string]any{
+		"url":    "http://example.com/hook2",
+		"events": []string{"push"},
+		"active": false,
+	})
+	if updated["url"] != "http://example.com/hook2" {
+		t.Errorf("updated url = %v", updated["url"])
+	}
+	if updated["active"] != false {
+		t.Errorf("updated active = %v", updated["active"])
+	}
+	updatedEvents, _ := updated["events"].([]any)
+	if len(updatedEvents) != 1 {
+		t.Errorf("expected 1 event after update, got %d", len(updatedEvents))
+	}
+
+	// Delete webhook
+	client.DeleteWebhook(t, "webhook-test", whID)
+
+	list = client.ListWebhooks(t, "webhook-test")
+	if len(list) != 0 {
+		t.Errorf("expected 0 webhooks after delete, got %d", len(list))
+	}
+}
+
+func TestWebhookInvalidEvent(t *testing.T) {
+	d := harness.StartDaemon(t, combineBin)
+	client := d.APIClient(t, "testuser")
+	client.CreateRepo(t, "webhook-invalid", false)
+
+	resp := client.DoRequest(t, "POST", "/api/v1/repos/webhook-invalid/webhooks", map[string]any{
+		"url":    "http://example.com/hook",
+		"events": []string{"nonexistent_event"},
+	})
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("expected 400 for invalid event, got %d", resp.StatusCode)
+	}
+}
