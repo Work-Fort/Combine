@@ -57,16 +57,16 @@ issue_status_changed, issue_closed, issue_comment). Per-repo issue numbering.
 Intentionally shallow status model (`open`, `in_progress`, `closed`) — Flow
 projects richer state when composed.
 
-## 7. Pull Requests + Commit Keywords
+## 7. Pull Requests + Commit Keywords ✅
 
-Pull requests (GitHub-style, not "merge requests"). Shared number sequence
-with issues per repo (#1 issue, #2 PR, #3 issue, etc.). Source/target branch,
-status (open, merged, closed). REST API at `/api/v1/repos/{repo}/pulls`.
-Webhook events (pull_request_opened, pull_request_merged, pull_request_closed).
+[Design](2026-04-04-pull-requests-design.md) · [Plan 7a](plans/2026-04-04-pull-requests-7a-plan.md) · [Plan 7b](plans/2026-04-04-pull-requests-7b-plan.md) · [Plan 7c](plans/2026-04-04-pull-requests-7c-plan.md)
 
-Commit message keywords (`closes #N`, `fixes #N`, `resolves #N`) parsed on
-push to auto-close referenced issues. Works on both direct pushes to default
-branch and PR merges.
+Pull requests (GitHub-style). Shared number sequence with issues per repo.
+CRUD + diff/commits/files API at `/api/v1/repos/{repo}/pulls`. Merge with
+strategies (merge commit, squash, rebase). Mergeability check. PR reviews
+with line-level comments (approve, request_changes, comment). Webhook events
+(opened, closed, merged, review). Commit message keywords (`closes #N`,
+`fixes #N`, `resolves #N`) auto-close issues on merge. 27 E2E tests.
 
 ## 8. Flow Integration
 
