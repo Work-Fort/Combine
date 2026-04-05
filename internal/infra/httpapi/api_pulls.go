@@ -3,11 +3,15 @@ package web
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
 
+	"github.com/Work-Fort/Combine/internal/app/backend"
 	"github.com/Work-Fort/Combine/internal/domain"
+	gitpkg "github.com/Work-Fort/Combine/internal/infra/git"
+	"github.com/Work-Fort/Combine/internal/infra/webhook"
 	"github.com/gorilla/mux"
 )
 
@@ -26,6 +30,11 @@ type updatePullRequestRequest struct {
 	AssigneeID *string `json:"assignee_id,omitempty"`
 }
 
+type mergePullRequestRequest struct {
+	MergeMethod string `json:"merge_method"` // "merge", "squash", "rebase"
+	Message     string `json:"message,omitempty"`
+}
+
 type pullRequestResponse struct {
 	Number       int64        `json:"number"`
 	Title        string       `json:"title"`
@@ -34,6 +43,7 @@ type pullRequestResponse struct {
 	TargetBranch string       `json:"target_branch"`
 	Status       string       `json:"status"`
 	MergeMethod  *string      `json:"merge_method,omitempty"`
+	Mergeable    *bool        `json:"mergeable,omitempty"`
 	Author       identityRef  `json:"author"`
 	MergedBy     *identityRef `json:"merged_by,omitempty"`
 	Assignee     *identityRef `json:"assignee,omitempty"`
@@ -43,12 +53,23 @@ type pullRequestResponse struct {
 	ClosedAt     *time.Time   `json:"closed_at,omitempty"`
 }
 
+type commitResponse struct {
+	SHA     string    `json:"sha"`
+	Message string    `json:"message"`
+	Author  string    `json:"author"`
+	Date    time.Time `json:"date"`
+}
+
 // RegisterPullRequestRoutes registers the pull request REST API routes.
 func RegisterPullRequestRoutes(r *mux.Router) {
 	r.HandleFunc("/repos/{repo:.+}/pulls", handleListPullRequests).Methods("GET")
 	r.HandleFunc("/repos/{repo:.+}/pulls", handleCreatePullRequest).Methods("POST")
 	r.HandleFunc("/repos/{repo:.+}/pulls/{number:[0-9]+}", handleGetPullRequest).Methods("GET")
 	r.HandleFunc("/repos/{repo:.+}/pulls/{number:[0-9]+}", handleUpdatePullRequest).Methods("PATCH")
+	r.HandleFunc("/repos/{repo:.+}/pulls/{number:[0-9]+}/merge", handleMergePullRequest).Methods("POST")
+	r.HandleFunc("/repos/{repo:.+}/pulls/{number:[0-9]+}/diff", handlePullRequestDiff).Methods("GET")
+	r.HandleFunc("/repos/{repo:.+}/pulls/{number:[0-9]+}/commits", handlePullRequestCommits).Methods("GET")
+	r.HandleFunc("/repos/{repo:.+}/pulls/{number:[0-9]+}/files", handlePullRequestFiles).Methods("GET")
 }
 
 func prToResponse(ctx context.Context, store domain.Store, pr *domain.PullRequest) pullRequestResponse {
@@ -114,8 +135,6 @@ func handleCreatePullRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO (plan 7b): Validate that source and target branches exist in the git repo.
-
 	pr := domain.PullRequest{
 		RepoID:       repo.ID,
 		AuthorID:     identity.ID,
@@ -134,7 +153,9 @@ func handleCreatePullRequest(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusCreated, prToResponse(ctx, store, &pr))
 
-	// TODO (plan 7b): Fire pull_request_opened webhook event.
+	if wh, err := webhook.NewPullRequestOpenedEvent(ctx, identity, repo, &pr); err == nil {
+		webhook.SendEvent(ctx, wh) //nolint:errcheck
+	}
 }
 
 func handleGetPullRequest(w http.ResponseWriter, r *http.Request) {
@@ -155,8 +176,17 @@ func handleGetPullRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO (plan 7b): Include mergeable status in response.
-	writeJSON(w, http.StatusOK, prToResponse(ctx, store, pr))
+	resp := prToResponse(ctx, store, pr)
+	if pr.Status == domain.PullRequestStatusOpen {
+		be := backend.FromContext(ctx)
+		if be != nil {
+			mergeable, err := be.IsPullRequestMergeable(ctx, repoName, pr.SourceBranch, pr.TargetBranch)
+			if err == nil {
+				resp.Mergeable = &mergeable
+			}
+		}
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 func handleListPullRequests(w http.ResponseWriter, r *http.Request) {
@@ -230,13 +260,16 @@ func handleUpdatePullRequest(w http.ResponseWriter, r *http.Request) {
 	if req.AssigneeID != nil {
 		pr.AssigneeID = req.AssigneeID
 	}
+
+	var statusChanged bool
 	if req.Status != nil {
 		newStatus := domain.PullRequestStatus(*req.Status)
-		// Only allow closing via PATCH — merging is via POST /merge (plan 7b).
+		// Only allow closing via PATCH — merging is via POST /merge.
 		if newStatus == domain.PullRequestStatusClosed && pr.Status == domain.PullRequestStatusOpen {
 			now := time.Now()
 			pr.ClosedAt = &now
 			pr.Status = newStatus
+			statusChanged = true
 		} else if newStatus == domain.PullRequestStatusOpen && pr.Status == domain.PullRequestStatusClosed {
 			pr.ClosedAt = nil
 			pr.Status = newStatus
@@ -251,5 +284,204 @@ func handleUpdatePullRequest(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, prToResponse(ctx, store, pr))
 
-	// TODO (plan 7b): Fire webhook events on status changes.
+	if statusChanged && pr.Status == domain.PullRequestStatusClosed {
+		if wh, err := webhook.NewPullRequestClosedEvent(ctx, identity, repo, pr); err == nil {
+			webhook.SendEvent(ctx, wh) //nolint:errcheck
+		}
+	}
+}
+
+func handleMergePullRequest(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	identity := domain.IdentityFromContext(ctx)
+	if identity == nil {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+	store := domain.StoreFromContext(ctx)
+	be := backend.FromContext(ctx)
+	repoName := mux.Vars(r)["repo"]
+	number, _ := strconv.ParseInt(mux.Vars(r)["number"], 10, 64)
+
+	var req mergePullRequestRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+
+	method := domain.MergeMethod(req.MergeMethod)
+	if method != domain.MergeMethodMerge && method != domain.MergeMethodSquash && method != domain.MergeMethodRebase {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "merge_method must be merge, squash, or rebase"})
+		return
+	}
+
+	repo, err := store.GetRepoByName(ctx, repoName)
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "repository not found"})
+		return
+	}
+
+	pr, err := store.GetPullRequestByNumber(ctx, repo.ID, number)
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "pull request not found"})
+		return
+	}
+
+	if pr.Status != domain.PullRequestStatusOpen {
+		writeJSON(w, http.StatusConflict, map[string]string{"error": "pull request is not open"})
+		return
+	}
+
+	mergeable, err := be.IsPullRequestMergeable(ctx, repoName, pr.SourceBranch, pr.TargetBranch)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to check mergeability"})
+		return
+	}
+	if !mergeable {
+		writeJSON(w, http.StatusConflict, map[string]string{"error": "pull request has conflicts"})
+		return
+	}
+
+	message := req.Message
+	if message == "" {
+		message = fmt.Sprintf("Merge pull request #%d from %s\n\n%s", pr.Number, pr.SourceBranch, pr.Title)
+	}
+
+	if _, err := be.MergePullRequest(ctx, repoName, pr.SourceBranch, pr.TargetBranch, method, message); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "merge failed: " + err.Error()})
+		return
+	}
+
+	now := time.Now()
+	pr.Status = domain.PullRequestStatusMerged
+	pr.MergeMethod = &method
+	pr.MergedBy = &identity.ID
+	pr.MergedAt = &now
+	if err := store.UpdatePullRequest(ctx, pr); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to update pull request"})
+		return
+	}
+
+	closeReferencedIssues(ctx, store, repo, pr.Body, identity)
+
+	writeJSON(w, http.StatusOK, prToResponse(ctx, store, pr))
+
+	if wh, err := webhook.NewPullRequestMergedEvent(ctx, identity, repo, pr); err == nil {
+		webhook.SendEvent(ctx, wh) //nolint:errcheck
+	}
+}
+
+func handlePullRequestDiff(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	store := domain.StoreFromContext(ctx)
+	be := backend.FromContext(ctx)
+	repoName := mux.Vars(r)["repo"]
+	number, _ := strconv.ParseInt(mux.Vars(r)["number"], 10, 64)
+
+	repo, err := store.GetRepoByName(ctx, repoName)
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "repository not found"})
+		return
+	}
+
+	pr, err := store.GetPullRequestByNumber(ctx, repo.ID, number)
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "pull request not found"})
+		return
+	}
+
+	diff, err := be.DiffPullRequest(ctx, repoName, pr.SourceBranch, pr.TargetBranch)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to compute diff"})
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/plain")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(diff.Patch())) //nolint:errcheck
+}
+
+func handlePullRequestCommits(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	store := domain.StoreFromContext(ctx)
+	be := backend.FromContext(ctx)
+	repoName := mux.Vars(r)["repo"]
+	number, _ := strconv.ParseInt(mux.Vars(r)["number"], 10, 64)
+
+	repo, err := store.GetRepoByName(ctx, repoName)
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "repository not found"})
+		return
+	}
+
+	pr, err := store.GetPullRequestByNumber(ctx, repo.ID, number)
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "pull request not found"})
+		return
+	}
+
+	commits, err := be.PullRequestCommits(ctx, repoName, pr.SourceBranch, pr.TargetBranch)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to list commits"})
+		return
+	}
+
+	resp := make([]commitResponse, 0, len(commits))
+	for _, c := range commits {
+		resp = append(resp, commitResponse{
+			SHA:     c.ID.String(),
+			Message: c.Message,
+			Author:  c.Author.Name,
+			Date:    c.Author.When,
+		})
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func handlePullRequestFiles(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	store := domain.StoreFromContext(ctx)
+	be := backend.FromContext(ctx)
+	repoName := mux.Vars(r)["repo"]
+	number, _ := strconv.ParseInt(mux.Vars(r)["number"], 10, 64)
+
+	repo, err := store.GetRepoByName(ctx, repoName)
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "repository not found"})
+		return
+	}
+
+	pr, err := store.GetPullRequestByNumber(ctx, repo.ID, number)
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "pull request not found"})
+		return
+	}
+
+	files, err := be.PullRequestFiles(ctx, repoName, pr.SourceBranch, pr.TargetBranch)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to list changed files"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, files)
+}
+
+func closeReferencedIssues(ctx context.Context, store domain.Store, repo *domain.Repo, text string, identity *domain.Identity) {
+	nums := gitpkg.ParseClosingKeywords(text)
+	for _, num := range nums {
+		issue, err := store.GetIssueByNumber(ctx, repo.ID, num)
+		if err != nil || issue.Status == domain.IssueStatusClosed {
+			continue
+		}
+		now := time.Now()
+		issue.Status = domain.IssueStatusClosed
+		issue.Resolution = domain.IssueResolutionFixed
+		issue.ClosedAt = &now
+		if err := store.UpdateIssue(ctx, issue); err != nil {
+			continue
+		}
+		if wh, err := webhook.NewIssueClosedEvent(ctx, identity, repo, issue, "fixed"); err == nil {
+			webhook.SendEvent(ctx, wh) //nolint:errcheck
+		}
+	}
 }

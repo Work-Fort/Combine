@@ -38,6 +38,18 @@ const (
 
 	// EventIssueComment is an issue comment event.
 	EventIssueComment Event = 10
+
+	// EventPullRequestOpened fires when a pull request is created.
+	EventPullRequestOpened Event = 11
+
+	// EventPullRequestClosed fires when a pull request is closed without merging.
+	EventPullRequestClosed Event = 12
+
+	// EventPullRequestMerged fires when a pull request is merged.
+	EventPullRequestMerged Event = 13
+
+	// EventPullRequestReview fires when a review is submitted.
+	EventPullRequestReview Event = 14
 )
 
 // Events return all events.
@@ -53,6 +65,10 @@ func Events() []Event {
 		EventIssueStatusChanged,
 		EventIssueClosed,
 		EventIssueComment,
+		EventPullRequestOpened,
+		EventPullRequestClosed,
+		EventPullRequestMerged,
+		EventPullRequestReview,
 	}
 }
 
@@ -67,6 +83,10 @@ var eventStrings = map[Event]string{
 	EventIssueStatusChanged:         "issue_status_changed",
 	EventIssueClosed:                "issue_closed",
 	EventIssueComment:               "issue_comment",
+	EventPullRequestOpened:          "pull_request_opened",
+	EventPullRequestClosed:          "pull_request_closed",
+	EventPullRequestMerged:          "pull_request_merged",
+	EventPullRequestReview:          "pull_request_review",
 }
 
 // String returns the string representation of the event.
@@ -85,6 +105,10 @@ var stringEvent = map[string]Event{
 	"issue_status_changed":         EventIssueStatusChanged,
 	"issue_closed":                 EventIssueClosed,
 	"issue_comment":                EventIssueComment,
+	"pull_request_opened":          EventPullRequestOpened,
+	"pull_request_closed":          EventPullRequestClosed,
+	"pull_request_merged":          EventPullRequestMerged,
+	"pull_request_review":          EventPullRequestReview,
 }
 
 // ErrInvalidEvent is returned when the event is invalid.
