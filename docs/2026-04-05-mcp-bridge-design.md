@@ -101,26 +101,26 @@ to path parameters or JSON request body fields.
 
 ## Tool Schema Examples
 
-Each tool is registered with `mcp-go`'s `server.NewTool()`. Path parameters
+Each tool is registered with `mcp-go`'s `mcp.NewTool()`. Path parameters
 become required string/integer arguments. Body parameters become optional
 arguments matching the REST API's JSON field names.
 
 ```go
 // Example: get_repo
-server.NewTool(
+s.AddTool(mcp.NewTool(
     "get_repo",
-    "Get repository details",
+    mcp.WithDescription("Get repository details"),
     mcp.WithString("repo", mcp.Required(), mcp.Description("Repository name")),
-)
+), getRepoHandler)
 
 // Example: create_issue
-server.NewTool(
+s.AddTool(mcp.NewTool(
     "create_issue",
-    "Create a new issue",
+    mcp.WithDescription("Create a new issue"),
     mcp.WithString("repo", mcp.Required(), mcp.Description("Repository name")),
     mcp.WithString("title", mcp.Required(), mcp.Description("Issue title")),
     mcp.WithString("body", mcp.Description("Issue body")),
-)
+), createIssueHandler)
 ```
 
 ## HTTP Client

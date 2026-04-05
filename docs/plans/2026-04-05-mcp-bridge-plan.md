@@ -170,8 +170,7 @@ func runBridge(cmd *cobra.Command, args []string) error {
     registerWebhookTools(s, client)
     registerKeyTools(s, client)
 
-    stdio := server.NewStdioServer(s)
-    return stdio.Listen()
+    return server.ServeStdio(s)
 }
 ```
 
