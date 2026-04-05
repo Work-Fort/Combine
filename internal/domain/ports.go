@@ -140,6 +140,15 @@ type PullRequestStore interface {
 	UpdatePullRequest(ctx context.Context, pr *PullRequest) error
 }
 
+// ReviewStore is the port for pull request review persistence.
+type ReviewStore interface {
+	CreateReview(ctx context.Context, review *PullRequestReview) error
+	ListReviewsByPRID(ctx context.Context, prID int64) ([]*PullRequestReview, error)
+
+	CreateReviewComment(ctx context.Context, comment *ReviewComment) error
+	ListReviewComments(ctx context.Context, reviewID int64) ([]*ReviewComment, error)
+}
+
 // Store is the composite port for all persistence operations.
 type Store interface {
 	RepoStore
@@ -152,6 +161,7 @@ type Store interface {
 	IdentityStore
 	IssueStore
 	PullRequestStore
+	ReviewStore
 
 	// NOTE: Combine-specific deviation from Nexus/Hive convention.
 	// Neither service exposes Transaction on their Store interface.

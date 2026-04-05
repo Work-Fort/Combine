@@ -526,3 +526,299 @@ func TestIssueStatusTransitions(t *testing.T) {
 		t.Error("closed_at should be cleared on reopen")
 	}
 }
+
+// --- Pull Request Tests ---
+
+func TestPullRequestCreate(t *testing.T) {
+	d := harness.StartDaemon(t, combineBin)
+	client := d.APIClient(t, "testuser")
+	client.CreateRepo(t, "pr-test", false)
+
+	// Push main branch with initial commit.
+	repoDir := t.TempDir()
+	harness.GitInit(t, repoDir)
+	harness.GitAddCommit(t, repoDir, "readme.txt", "hello\n", "initial commit")
+	sshURL := fmt.Sprintf("ssh://127.0.0.1:%s/pr-test", sshPort(d.SSHAddr))
+	harness.GitAddRemote(t, repoDir, "origin", sshURL)
+	harness.GitPush(t, repoDir, d.PrivKeyPath, "origin", "main")
+
+	// Create feature branch with a change.
+	harness.GitCheckoutBranch(t, repoDir, "feature")
+	harness.GitAddCommit(t, repoDir, "feature.txt", "new feature\n", "add feature")
+	harness.GitPushBranch(t, repoDir, d.PrivKeyPath, "origin", "feature")
+
+	// Create PR.
+	pr := client.CreatePullRequest(t, "pr-test", "Add feature", "This adds a feature", "feature", "main")
+	if pr["number"] != float64(1) {
+		t.Errorf("PR number = %v, want 1", pr["number"])
+	}
+	if pr["status"] != "open" {
+		t.Errorf("PR status = %v, want open", pr["status"])
+	}
+	if pr["source_branch"] != "feature" {
+		t.Errorf("source_branch = %v, want feature", pr["source_branch"])
+	}
+
+	// Get PR.
+	got := client.GetPullRequest(t, "pr-test", 1)
+	if got["title"] != "Add feature" {
+		t.Errorf("title = %v", got["title"])
+	}
+
+	// List PRs.
+	prs := client.ListPullRequests(t, "pr-test")
+	if len(prs) != 1 {
+		t.Errorf("expected 1 PR, got %d", len(prs))
+	}
+}
+
+func TestSharedNumberSequence(t *testing.T) {
+	d := harness.StartDaemon(t, combineBin)
+	client := d.APIClient(t, "testuser")
+	client.CreateRepo(t, "seq-test", false)
+
+	// Push branches for PR.
+	repoDir := t.TempDir()
+	harness.GitInit(t, repoDir)
+	harness.GitAddCommit(t, repoDir, "readme.txt", "hello\n", "init")
+	sshURL := fmt.Sprintf("ssh://127.0.0.1:%s/seq-test", sshPort(d.SSHAddr))
+	harness.GitAddRemote(t, repoDir, "origin", sshURL)
+	harness.GitPush(t, repoDir, d.PrivKeyPath, "origin", "main")
+
+	harness.GitCheckoutBranch(t, repoDir, "feature")
+	harness.GitAddCommit(t, repoDir, "f.txt", "f\n", "feature")
+	harness.GitPushBranch(t, repoDir, d.PrivKeyPath, "origin", "feature")
+
+	// Issue #1
+	issue := client.CreateIssue(t, "seq-test", "Bug", "")
+	if issue["number"] != float64(1) {
+		t.Errorf("issue number = %v, want 1", issue["number"])
+	}
+
+	// PR #2
+	pr := client.CreatePullRequest(t, "seq-test", "Feature", "", "feature", "main")
+	if pr["number"] != float64(2) {
+		t.Errorf("PR number = %v, want 2", pr["number"])
+	}
+
+	// Issue #3
+	issue2 := client.CreateIssue(t, "seq-test", "Another bug", "")
+	if issue2["number"] != float64(3) {
+		t.Errorf("issue2 number = %v, want 3", issue2["number"])
+	}
+}
+
+func TestPullRequestDiffAndFiles(t *testing.T) {
+	d := harness.StartDaemon(t, combineBin)
+	client := d.APIClient(t, "testuser")
+	client.CreateRepo(t, "diff-test", false)
+
+	repoDir := t.TempDir()
+	harness.GitInit(t, repoDir)
+	harness.GitAddCommit(t, repoDir, "readme.txt", "hello\n", "init")
+	sshURL := fmt.Sprintf("ssh://127.0.0.1:%s/diff-test", sshPort(d.SSHAddr))
+	harness.GitAddRemote(t, repoDir, "origin", sshURL)
+	harness.GitPush(t, repoDir, d.PrivKeyPath, "origin", "main")
+
+	harness.GitCheckoutBranch(t, repoDir, "changes")
+	harness.GitAddCommit(t, repoDir, "new-file.txt", "content\n", "add new file")
+	harness.GitPushBranch(t, repoDir, d.PrivKeyPath, "origin", "changes")
+
+	client.CreatePullRequest(t, "diff-test", "Changes", "", "changes", "main")
+
+	// Check diff.
+	diff := client.GetPullRequestDiff(t, "diff-test", 1)
+	if !strings.Contains(diff, "new-file.txt") {
+		t.Errorf("diff should mention new-file.txt, got:\n%s", diff)
+	}
+
+	// Check files.
+	files := client.GetPullRequestFiles(t, "diff-test", 1)
+	if len(files) != 1 {
+		t.Fatalf("expected 1 changed file, got %d", len(files))
+	}
+	if files[0]["filename"] != "new-file.txt" {
+		t.Errorf("filename = %v", files[0]["filename"])
+	}
+	if files[0]["status"] != "added" {
+		t.Errorf("status = %v, want added", files[0]["status"])
+	}
+}
+
+func TestPullRequestMerge(t *testing.T) {
+	d := harness.StartDaemon(t, combineBin)
+	client := d.APIClient(t, "testuser")
+	client.CreateRepo(t, "merge-test", false)
+
+	repoDir := t.TempDir()
+	harness.GitInit(t, repoDir)
+	harness.GitAddCommit(t, repoDir, "readme.txt", "hello\n", "init")
+	sshURL := fmt.Sprintf("ssh://127.0.0.1:%s/merge-test", sshPort(d.SSHAddr))
+	harness.GitAddRemote(t, repoDir, "origin", sshURL)
+	harness.GitPush(t, repoDir, d.PrivKeyPath, "origin", "main")
+
+	harness.GitCheckoutBranch(t, repoDir, "feature")
+	harness.GitAddCommit(t, repoDir, "feature.txt", "new\n", "feature commit")
+	harness.GitPushBranch(t, repoDir, d.PrivKeyPath, "origin", "feature")
+
+	client.CreatePullRequest(t, "merge-test", "Feature", "", "feature", "main")
+
+	// Merge.
+	merged := client.MergePullRequest(t, "merge-test", 1, "merge")
+	if merged["status"] != "merged" {
+		t.Errorf("status = %v, want merged", merged["status"])
+	}
+	if merged["merged_at"] == nil {
+		t.Error("merged_at should be set")
+	}
+
+	// Clone and verify the merge landed.
+	cloneDir := filepath.Join(t.TempDir(), "clone")
+	harness.GitCloneSSH(t, sshURL, d.PrivKeyPath, cloneDir)
+	if _, err := os.Stat(filepath.Join(cloneDir, "feature.txt")); os.IsNotExist(err) {
+		t.Error("feature.txt should exist after merge")
+	}
+}
+
+func TestPullRequestSquashMerge(t *testing.T) {
+	d := harness.StartDaemon(t, combineBin)
+	client := d.APIClient(t, "testuser")
+	client.CreateRepo(t, "squash-test", false)
+
+	repoDir := t.TempDir()
+	harness.GitInit(t, repoDir)
+	harness.GitAddCommit(t, repoDir, "readme.txt", "hello\n", "init")
+	sshURL := fmt.Sprintf("ssh://127.0.0.1:%s/squash-test", sshPort(d.SSHAddr))
+	harness.GitAddRemote(t, repoDir, "origin", sshURL)
+	harness.GitPush(t, repoDir, d.PrivKeyPath, "origin", "main")
+
+	harness.GitCheckoutBranch(t, repoDir, "multi")
+	harness.GitAddCommit(t, repoDir, "a.txt", "a\n", "commit 1")
+	harness.GitAddCommit(t, repoDir, "b.txt", "b\n", "commit 2")
+	harness.GitPushBranch(t, repoDir, d.PrivKeyPath, "origin", "multi")
+
+	client.CreatePullRequest(t, "squash-test", "Multi", "", "multi", "main")
+	merged := client.MergePullRequest(t, "squash-test", 1, "squash")
+	if merged["status"] != "merged" {
+		t.Errorf("status = %v", merged["status"])
+	}
+
+	// Verify squash produced fewer commits.
+	cloneDir := filepath.Join(t.TempDir(), "clone")
+	harness.GitCloneSSH(t, sshURL, d.PrivKeyPath, cloneDir)
+	log := harness.GitLog(t, cloneDir)
+	// Squash should result in init + squash = 2 commits, not init + 2 feature = 3.
+	if count := strings.Count(log, "commit "); count != 2 {
+		t.Errorf("expected 2 commits after squash, got %d:\n%s", count, log)
+	}
+}
+
+func TestPullRequestReview(t *testing.T) {
+	d := harness.StartDaemon(t, combineBin)
+	client := d.APIClient(t, "testuser")
+	client.CreateRepo(t, "review-test", false)
+
+	repoDir := t.TempDir()
+	harness.GitInit(t, repoDir)
+	harness.GitAddCommit(t, repoDir, "readme.txt", "hello\n", "init")
+	sshURL := fmt.Sprintf("ssh://127.0.0.1:%s/review-test", sshPort(d.SSHAddr))
+	harness.GitAddRemote(t, repoDir, "origin", sshURL)
+	harness.GitPush(t, repoDir, d.PrivKeyPath, "origin", "main")
+
+	harness.GitCheckoutBranch(t, repoDir, "feature")
+	harness.GitAddCommit(t, repoDir, "feature.txt", "code\n", "add code")
+	harness.GitPushBranch(t, repoDir, d.PrivKeyPath, "origin", "feature")
+
+	client.CreatePullRequest(t, "review-test", "Feature", "", "feature", "main")
+
+	// Submit review with line comment.
+	review := client.SubmitReview(t, "review-test", 1, "approved", "LGTM", []map[string]any{
+		{"path": "feature.txt", "line": 1, "body": "nice line"},
+	})
+	if review["state"] != "approved" {
+		t.Errorf("state = %v", review["state"])
+	}
+
+	// List reviews.
+	resp := client.DoRequest(t, "GET", "/api/v1/repos/review-test/pulls/1/reviews", nil)
+	var reviews []map[string]any
+	json.NewDecoder(resp.Body).Decode(&reviews)
+	resp.Body.Close()
+	if len(reviews) != 1 {
+		t.Errorf("expected 1 review, got %d", len(reviews))
+	}
+}
+
+func TestPullRequestCloseReopen(t *testing.T) {
+	d := harness.StartDaemon(t, combineBin)
+	client := d.APIClient(t, "testuser")
+	client.CreateRepo(t, "close-test", false)
+
+	repoDir := t.TempDir()
+	harness.GitInit(t, repoDir)
+	harness.GitAddCommit(t, repoDir, "readme.txt", "hello\n", "init")
+	sshURL := fmt.Sprintf("ssh://127.0.0.1:%s/close-test", sshPort(d.SSHAddr))
+	harness.GitAddRemote(t, repoDir, "origin", sshURL)
+	harness.GitPush(t, repoDir, d.PrivKeyPath, "origin", "main")
+
+	harness.GitCheckoutBranch(t, repoDir, "feature")
+	harness.GitAddCommit(t, repoDir, "f.txt", "f\n", "feat")
+	harness.GitPushBranch(t, repoDir, d.PrivKeyPath, "origin", "feature")
+
+	client.CreatePullRequest(t, "close-test", "Feature", "", "feature", "main")
+
+	// Close.
+	resp := client.DoRequest(t, "PATCH", "/api/v1/repos/close-test/pulls/1", map[string]any{"status": "closed"})
+	var closed map[string]any
+	json.NewDecoder(resp.Body).Decode(&closed)
+	resp.Body.Close()
+	if closed["status"] != "closed" {
+		t.Errorf("status = %v, want closed", closed["status"])
+	}
+	if closed["closed_at"] == nil {
+		t.Error("closed_at should be set")
+	}
+
+	// Reopen.
+	resp = client.DoRequest(t, "PATCH", "/api/v1/repos/close-test/pulls/1", map[string]any{"status": "open"})
+	var reopened map[string]any
+	json.NewDecoder(resp.Body).Decode(&reopened)
+	resp.Body.Close()
+	if reopened["status"] != "open" {
+		t.Errorf("status = %v, want open", reopened["status"])
+	}
+	if reopened["closed_at"] != nil {
+		t.Error("closed_at should be nil on reopen")
+	}
+}
+
+func TestPullRequestAutoCloseIssue(t *testing.T) {
+	d := harness.StartDaemon(t, combineBin)
+	client := d.APIClient(t, "testuser")
+	client.CreateRepo(t, "autoclose-test", false)
+
+	// Create issue #1.
+	client.CreateIssue(t, "autoclose-test", "Bug to fix", "")
+
+	// Push branches.
+	repoDir := t.TempDir()
+	harness.GitInit(t, repoDir)
+	harness.GitAddCommit(t, repoDir, "readme.txt", "hello\n", "init")
+	sshURL := fmt.Sprintf("ssh://127.0.0.1:%s/autoclose-test", sshPort(d.SSHAddr))
+	harness.GitAddRemote(t, repoDir, "origin", sshURL)
+	harness.GitPush(t, repoDir, d.PrivKeyPath, "origin", "main")
+
+	harness.GitCheckoutBranch(t, repoDir, "fix")
+	harness.GitAddCommit(t, repoDir, "fix.txt", "fixed\n", "fix the bug")
+	harness.GitPushBranch(t, repoDir, d.PrivKeyPath, "origin", "fix")
+
+	// PR #2 with "fixes #1" in body.
+	client.CreatePullRequest(t, "autoclose-test", "Fix bug", "fixes #1", "fix", "main")
+	client.MergePullRequest(t, "autoclose-test", 2, "merge")
+
+	// Verify issue #1 is closed.
+	issue := client.GetIssue(t, "autoclose-test", 1)
+	if issue["status"] != "closed" {
+		t.Errorf("issue status = %v, want closed", issue["status"])
+	}
+}

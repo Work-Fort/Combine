@@ -275,6 +275,19 @@ func GitLog(t *testing.T, dir string) string {
 	return string(out)
 }
 
+// GitCheckoutBranch creates and checks out a new branch.
+func GitCheckoutBranch(t *testing.T, dir, branch string) {
+	t.Helper()
+	runGit(t, dir, nil, "checkout", "-b", branch)
+}
+
+// GitPushBranch pushes a branch via SSH with the given key.
+func GitPushBranch(t *testing.T, dir, keyPath, remote, branch string) {
+	t.Helper()
+	env := sshEnv(keyPath)
+	runGit(t, dir, env, "push", remote, branch)
+}
+
 func sshEnv(privKeyPath string) []string {
 	return []string{
 		fmt.Sprintf("GIT_SSH_COMMAND=ssh -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null", privKeyPath),

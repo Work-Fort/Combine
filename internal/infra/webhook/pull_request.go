@@ -113,3 +113,36 @@ func NewPullRequestMergedEvent(ctx context.Context, identity *domain.Identity, r
 		PullRequest: buildPRPayload(pr),
 	}, nil
 }
+
+// ReviewPayload is the review representation in webhook payloads.
+type ReviewPayload struct {
+	ID       int64  `json:"id"`
+	Author   User   `json:"author"`
+	State    string `json:"state"`
+	Body     string `json:"body"`
+	Comments int    `json:"comments_count"`
+}
+
+// PullRequestReviewEvent is fired when a review is submitted on a pull request.
+type PullRequestReviewEvent struct {
+	Common
+	Sender      IdentitySender     `json:"sender"`
+	PullRequest PullRequestPayload `json:"pull_request"`
+	Review      ReviewPayload      `json:"review"`
+}
+
+// NewPullRequestReviewEvent creates a new pull request review event.
+func NewPullRequestReviewEvent(ctx context.Context, identity *domain.Identity, repo *domain.Repo, pr *domain.PullRequest, review *domain.PullRequestReview) (PullRequestReviewEvent, error) {
+	return PullRequestReviewEvent{
+		Common:      buildPRCommon(ctx, repo, EventPullRequestReview),
+		Sender:      identitySender(identity),
+		PullRequest: buildPRPayload(pr),
+		Review: ReviewPayload{
+			ID:       review.ID,
+			Author:   User{Username: identity.Username},
+			State:    string(review.State),
+			Body:     review.Body,
+			Comments: len(review.Comments),
+		},
+	}, nil
+}

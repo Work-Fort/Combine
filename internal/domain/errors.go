@@ -44,4 +44,7 @@ var (
 
 	// ErrPullRequestNotFound is returned when a pull request is not found.
 	ErrPullRequestNotFound = errors.New("pull request not found")
+
+	// ErrReviewNotFound is returned when a review is not found.
+	ErrReviewNotFound = errors.New("review not found")
 )

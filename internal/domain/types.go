@@ -290,6 +290,39 @@ type PullRequestListOptions struct {
 	AuthorID *string
 }
 
+// ReviewState represents the state of a pull request review.
+type ReviewState string
+
+const (
+	ReviewStatePending          ReviewState = "pending"
+	ReviewStateApproved         ReviewState = "approved"
+	ReviewStateChangesRequested ReviewState = "changes_requested"
+	ReviewStateCommented        ReviewState = "commented"
+)
+
+// PullRequestReview is a review on a pull request.
+type PullRequestReview struct {
+	ID        int64       // Global PK
+	PRID      int64       // FK to pull_requests.id
+	AuthorID  string      // FK to identities.id
+	State     ReviewState
+	Body      string
+	Comments  []*ReviewComment // Populated on read
+	CreatedAt time.Time
+}
+
+// ReviewComment is a line-level comment on a file in a PR review.
+type ReviewComment struct {
+	ID        int64
+	ReviewID  int64  // FK to pull_request_reviews.id
+	Path      string // File path in diff
+	Line      int    // Line number
+	Side      string // "left" or "right"
+	Body      string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
 // IssueListOptions controls filtering for ListIssues.
 type IssueListOptions struct {
 	Status     *IssueStatus

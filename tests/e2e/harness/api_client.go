@@ -266,6 +266,106 @@ func (c *APIClient) ListComments(t *testing.T, repo string, number int) []map[st
 	return c.decodeJSONArray(t, resp)
 }
 
+// CreatePullRequest creates a pull request via the REST API.
+func (c *APIClient) CreatePullRequest(t *testing.T, repo, title, body, source, target string) map[string]any {
+	t.Helper()
+	resp := c.DoRequest(t, "POST", fmt.Sprintf("/api/v1/repos/%s/pulls", repo), map[string]any{
+		"title":         title,
+		"body":          body,
+		"source_branch": source,
+		"target_branch": target,
+	})
+	if resp.StatusCode != http.StatusCreated {
+		b, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		t.Fatalf("CreatePullRequest: status %d, body: %s", resp.StatusCode, b)
+	}
+	return c.decodeJSON(t, resp)
+}
+
+// GetPullRequest retrieves a pull request by repo and number.
+func (c *APIClient) GetPullRequest(t *testing.T, repo string, number int) map[string]any {
+	t.Helper()
+	resp := c.DoRequest(t, "GET", fmt.Sprintf("/api/v1/repos/%s/pulls/%d", repo, number), nil)
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		t.Fatalf("GetPullRequest: status %d, body: %s", resp.StatusCode, b)
+	}
+	return c.decodeJSON(t, resp)
+}
+
+// ListPullRequests lists pull requests for a repo.
+func (c *APIClient) ListPullRequests(t *testing.T, repo string) []map[string]any {
+	t.Helper()
+	resp := c.DoRequest(t, "GET", fmt.Sprintf("/api/v1/repos/%s/pulls", repo), nil)
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		t.Fatalf("ListPullRequests: status %d, body: %s", resp.StatusCode, b)
+	}
+	return c.decodeJSONArray(t, resp)
+}
+
+// MergePullRequest merges a pull request.
+func (c *APIClient) MergePullRequest(t *testing.T, repo string, number int, method string) map[string]any {
+	t.Helper()
+	resp := c.DoRequest(t, "POST", fmt.Sprintf("/api/v1/repos/%s/pulls/%d/merge", repo, number), map[string]any{
+		"merge_method": method,
+	})
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		t.Fatalf("MergePullRequest: status %d, body: %s", resp.StatusCode, b)
+	}
+	return c.decodeJSON(t, resp)
+}
+
+// SubmitReview submits a review on a pull request.
+func (c *APIClient) SubmitReview(t *testing.T, repo string, number int, state, body string, comments []map[string]any) map[string]any {
+	t.Helper()
+	payload := map[string]any{
+		"state": state,
+		"body":  body,
+	}
+	if comments != nil {
+		payload["comments"] = comments
+	}
+	resp := c.DoRequest(t, "POST", fmt.Sprintf("/api/v1/repos/%s/pulls/%d/reviews", repo, number), payload)
+	if resp.StatusCode != http.StatusCreated {
+		b, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		t.Fatalf("SubmitReview: status %d, body: %s", resp.StatusCode, b)
+	}
+	return c.decodeJSON(t, resp)
+}
+
+// GetPullRequestDiff retrieves the diff for a pull request.
+func (c *APIClient) GetPullRequestDiff(t *testing.T, repo string, number int) string {
+	t.Helper()
+	resp := c.DoRequest(t, "GET", fmt.Sprintf("/api/v1/repos/%s/pulls/%d/diff", repo, number), nil)
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		t.Fatalf("GetPullRequestDiff: status %d, body: %s", resp.StatusCode, b)
+	}
+	b, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	return string(b)
+}
+
+// GetPullRequestFiles retrieves the changed files for a pull request.
+func (c *APIClient) GetPullRequestFiles(t *testing.T, repo string, number int) []map[string]any {
+	t.Helper()
+	resp := c.DoRequest(t, "GET", fmt.Sprintf("/api/v1/repos/%s/pulls/%d/files", repo, number), nil)
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		t.Fatalf("GetPullRequestFiles: status %d, body: %s", resp.StatusCode, b)
+	}
+	return c.decodeJSONArray(t, resp)
+}
+
 // DeleteKey deletes an SSH key by ID.
 func (c *APIClient) DeleteKey(t *testing.T, keyID string) {
 	t.Helper()
