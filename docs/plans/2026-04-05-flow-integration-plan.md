@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Add webhook registration REST API so Flow can programmatically register webhook callbacks. Verify push payload includes commit details (already confirmed -- no code change needed).
+**Goal:** Add webhook registration REST API so Flow can programmatically register webhook callbacks. Verify push payload includes commit details (already confirmed -- no code change needed). The `secret` field is optional -- within WorkFort's internal network, HMAC signing is unnecessary since services authenticate via Passport tokens.
 
 **Architecture:** New handler file `internal/infra/httpapi/api_webhooks.go` following the same pattern as `api_issues.go`. Direct store access, Passport auth via existing middleware. Event names mapped via `webhook.ParseEvent()` / `Event.String()`.
 
