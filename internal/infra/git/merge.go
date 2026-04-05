@@ -15,13 +15,15 @@ func (r *Repository) MergeBase(base, head string) (string, error) {
 
 // DiffBranches returns the diff between two branches (from merge-base to head).
 func (r *Repository) DiffBranches(base, head string) (*Diff, error) {
-	mergeBase, err := r.MergeBase(base, head)
+	baseRef := "refs/heads/" + base
+	headRef := "refs/heads/" + head
+	mergeBase, err := r.MergeBase(baseRef, headRef)
 	if err != nil {
 		return nil, fmt.Errorf("merge base: %w", err)
 	}
 
-	rev := mergeBase + ".." + head
-	ddiff, err := r.Repository.Diff(rev, DiffMaxFiles, DiffMaxFileLines, DiffMaxLineChars, git.DiffOptions{
+	ddiff, err := r.Repository.Diff(headRef, DiffMaxFiles, DiffMaxFileLines, DiffMaxLineChars, git.DiffOptions{
+		Base: mergeBase,
 		CommandOptions: git.CommandOptions{
 			Envs: []string{"GIT_CONFIG_GLOBAL=/dev/null"},
 		},
@@ -34,12 +36,14 @@ func (r *Repository) DiffBranches(base, head string) (*Diff, error) {
 
 // CommitsBetween returns commits between merge-base and head (reverse chronological).
 func (r *Repository) CommitsBetween(base, head string) ([]*git.Commit, error) {
-	mergeBase, err := r.MergeBase(base, head)
+	baseRef := "refs/heads/" + base
+	headRef := "refs/heads/" + head
+	mergeBase, err := r.MergeBase(baseRef, headRef)
 	if err != nil {
 		return nil, fmt.Errorf("merge base: %w", err)
 	}
 
-	rev := mergeBase + ".." + head
+	rev := mergeBase + ".." + headRef
 	return r.Repository.Log(rev)
 }
 
@@ -127,7 +131,13 @@ func (r *Repository) MergeBranches(base, head, message string) (*MergeResult, er
 	cmd := exec.Command("git", "commit-tree", treeHash,
 		"-p", baseHash, "-p", headHash, "-m", message)
 	cmd.Dir = r.Path
-	cmd.Env = append(cmd.Environ(), "GIT_CONFIG_GLOBAL=/dev/null")
+	cmd.Env = append(cmd.Environ(),
+		"GIT_CONFIG_GLOBAL=/dev/null",
+		"GIT_AUTHOR_NAME=Combine",
+		"GIT_AUTHOR_EMAIL=combine@localhost",
+		"GIT_COMMITTER_NAME=Combine",
+		"GIT_COMMITTER_EMAIL=combine@localhost",
+	)
 	commitOut, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("commit-tree: %w: %s", err, commitOut)
@@ -163,7 +173,13 @@ func (r *Repository) SquashBranches(base, head, message string) (*MergeResult, e
 
 	cmd := exec.Command("git", "commit-tree", treeHash, "-p", baseHash, "-m", message)
 	cmd.Dir = r.Path
-	cmd.Env = append(cmd.Environ(), "GIT_CONFIG_GLOBAL=/dev/null")
+	cmd.Env = append(cmd.Environ(),
+		"GIT_CONFIG_GLOBAL=/dev/null",
+		"GIT_AUTHOR_NAME=Combine",
+		"GIT_AUTHOR_EMAIL=combine@localhost",
+		"GIT_COMMITTER_NAME=Combine",
+		"GIT_COMMITTER_EMAIL=combine@localhost",
+	)
 	commitOut, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("commit-tree: %w: %s", err, commitOut)
