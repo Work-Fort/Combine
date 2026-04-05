@@ -10,6 +10,69 @@
 
 ---
 
+## Task 0: Remove webhook secret from codebase
+
+**Why:** The `secret` column and HMAC signing logic were inherited from Soft Serve. Within WorkFort's internal network, services authenticate via Passport tokens, so webhook payload signing is unnecessary. Remove it entirely before building the REST API so the new handlers never need to deal with it.
+
+**Files:**
+- Modify: `internal/domain/types.go`
+- Modify: `internal/domain/ports.go`
+- Modify: `internal/app/backend/webhooks.go`
+- Modify: `internal/infra/sqlite/webhook.go`
+- Modify: `internal/infra/postgres/webhook.go`
+- Modify: `internal/infra/webhook/webhook.go`
+- Modify: `internal/infra/webhook/ssrf_test.go`
+- Modify: `internal/infra/sqlite/migrations/001_init.sql`
+- Modify: `internal/infra/postgres/migrations/001_init.sql`
+
+**Step 1: Drop `secret` column from database schema**
+
+Remove `secret TEXT NOT NULL` from the `webhooks` CREATE TABLE in both:
+- `internal/infra/sqlite/migrations/001_init.sql`
+- `internal/infra/postgres/migrations/001_init.sql`
+
+**Step 2: Remove `Secret` from domain types and ports**
+
+In `internal/domain/types.go`, remove the `Secret string` field from the `Webhook` struct.
+
+In `internal/domain/ports.go`, remove the `secret string` parameter from:
+- `CreateWebhook(ctx context.Context, repoID int64, url string, contentType int, active bool) (int64, error)`
+- `UpdateWebhookByID(ctx context.Context, repoID int64, id int64, url string, contentType int, active bool) error`
+
+**Step 3: Update SQLite and Postgres adapters**
+
+In both `internal/infra/sqlite/webhook.go` and `internal/infra/postgres/webhook.go`:
+- Remove `secret` from `webhookColumns` constant
+- Remove `&w.Secret` from `scanWebhook`
+- Remove `secret` parameter from `createWebhook` and `updateWebhookByID` internal functions
+- Remove `secret` from SQL INSERT and UPDATE statements
+- Remove `secret` from the JOIN query in `listWebhooksByRepoIDWhereEvent`
+- Update all Store and txStore method signatures to match
+
+**Step 4: Update Backend methods**
+
+In `internal/app/backend/webhooks.go`:
+- Remove `secret string` parameter from `Backend.CreateWebhook` and `Backend.UpdateWebhook`
+- Remove `secret` from the store calls within those methods
+
+**Step 5: Remove HMAC signing from webhook delivery**
+
+In `internal/infra/webhook/webhook.go`:
+- Remove `crypto/hmac`, `crypto/sha256`, `encoding/hex` imports
+- Remove the HMAC signing block that adds the `X-SoftServe-Signature` header
+
+In `internal/infra/webhook/ssrf_test.go`:
+- Remove `Secret: ""` from the test webhook struct literal
+
+**Verification:**
+```bash
+cd /home/kazw/Work/WorkFort/combine/lead && go build ./...
+```
+
+**Commit:** `refactor: remove webhook secret from domain, stores, and delivery`
+
+---
+
 ## Task 1: Webhook REST API handlers
 
 **Files:**
