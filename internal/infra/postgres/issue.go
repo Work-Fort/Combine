@@ -61,15 +61,20 @@ func getIssueLabels(ctx context.Context, q querier, issueID int64) ([]string, er
 }
 
 func createIssue(ctx context.Context, q querier, issue *domain.Issue) error {
+	num, err := nextNumber(ctx, q, issue.RepoID)
+	if err != nil {
+		return err
+	}
+
 	row := q.QueryRowContext(ctx,
 		`INSERT INTO issues (number, repo_id, author_id, title, body, status, resolution, assignee_id, updated_at)
-		 VALUES ((SELECT COALESCE(MAX(number), 0) + 1 FROM issues WHERE repo_id = $1),
-		         $2, $3, $4, $5, $6, $7, $8, NOW())
-		 RETURNING id, number, created_at, updated_at`,
-		issue.RepoID, issue.RepoID, issue.AuthorID, issue.Title, issue.Body,
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+		 RETURNING id, created_at, updated_at`,
+		num, issue.RepoID, issue.AuthorID, issue.Title, issue.Body,
 		issue.Status, issue.Resolution, issue.AssigneeID,
 	)
-	return row.Scan(&issue.ID, &issue.Number, &issue.CreatedAt, &issue.UpdatedAt)
+	issue.Number = num
+	return row.Scan(&issue.ID, &issue.CreatedAt, &issue.UpdatedAt)
 }
 
 func getIssueByNumber(ctx context.Context, q querier, repoID, number int64) (*domain.Issue, error) {

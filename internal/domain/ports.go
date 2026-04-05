@@ -132,6 +132,14 @@ type IssueStore interface {
 	ListIssueComments(ctx context.Context, issueID int64) ([]*IssueComment, error)
 }
 
+// PullRequestStore is the port for pull request persistence.
+type PullRequestStore interface {
+	CreatePullRequest(ctx context.Context, pr *PullRequest) error
+	GetPullRequestByNumber(ctx context.Context, repoID int64, number int64) (*PullRequest, error)
+	ListPullRequests(ctx context.Context, repoID int64, opts PullRequestListOptions) ([]*PullRequest, error)
+	UpdatePullRequest(ctx context.Context, pr *PullRequest) error
+}
+
 // Store is the composite port for all persistence operations.
 type Store interface {
 	RepoStore
@@ -143,6 +151,7 @@ type Store interface {
 	WebhookStore
 	IdentityStore
 	IssueStore
+	PullRequestStore
 
 	// NOTE: Combine-specific deviation from Nexus/Hive convention.
 	// Neither service exposes Transaction on their Store interface.

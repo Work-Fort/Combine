@@ -61,11 +61,15 @@ func getIssueLabels(ctx context.Context, q querier, issueID int64) ([]string, er
 }
 
 func createIssue(ctx context.Context, q querier, issue *domain.Issue) error {
+	num, err := nextNumber(ctx, q, issue.RepoID)
+	if err != nil {
+		return err
+	}
+
 	res, err := q.ExecContext(ctx,
 		`INSERT INTO issues (number, repo_id, author_id, title, body, status, resolution, assignee_id, updated_at)
-		 VALUES ((SELECT COALESCE(MAX(number), 0) + 1 FROM issues WHERE repo_id = ?),
-		         ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
-		issue.RepoID, issue.RepoID, issue.AuthorID, issue.Title, issue.Body,
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+		num, issue.RepoID, issue.AuthorID, issue.Title, issue.Body,
 		issue.Status, issue.Resolution, issue.AssigneeID,
 	)
 	if err != nil {
@@ -73,8 +77,9 @@ func createIssue(ctx context.Context, q querier, issue *domain.Issue) error {
 	}
 	id, _ := res.LastInsertId()
 	issue.ID = id
-	row := q.QueryRowContext(ctx, `SELECT number, created_at, updated_at FROM issues WHERE id = ?`, id)
-	return row.Scan(&issue.Number, &issue.CreatedAt, &issue.UpdatedAt)
+	issue.Number = num
+	row := q.QueryRowContext(ctx, `SELECT created_at, updated_at FROM issues WHERE id = ?`, id)
+	return row.Scan(&issue.CreatedAt, &issue.UpdatedAt)
 }
 
 func getIssueByNumber(ctx context.Context, q querier, repoID, number int64) (*domain.Issue, error) {

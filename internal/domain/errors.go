@@ -41,4 +41,7 @@ var (
 
 	// ErrIssueNotFound is returned when an issue is not found.
 	ErrIssueNotFound = errors.New("issue not found")
+
+	// ErrPullRequestNotFound is returned when a pull request is not found.
+	ErrPullRequestNotFound = errors.New("pull request not found")
 )

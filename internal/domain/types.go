@@ -246,6 +246,50 @@ type IssueComment struct {
 	UpdatedAt time.Time
 }
 
+// PullRequestStatus represents the status of a pull request.
+type PullRequestStatus string
+
+const (
+	PullRequestStatusOpen   PullRequestStatus = "open"
+	PullRequestStatusMerged PullRequestStatus = "merged"
+	PullRequestStatusClosed PullRequestStatus = "closed"
+)
+
+// MergeMethod represents a pull request merge strategy.
+type MergeMethod string
+
+const (
+	MergeMethodMerge  MergeMethod = "merge"
+	MergeMethodSquash MergeMethod = "squash"
+	MergeMethodRebase MergeMethod = "rebase"
+)
+
+// PullRequest is a repository pull request.
+type PullRequest struct {
+	ID           int64             // Global autoincrement PK (internal)
+	Number       int64             // Per-repo number (shared with issues)
+	RepoID       int64             // FK to repos.id
+	AuthorID     string            // FK to identities.id
+	Title        string
+	Body         string
+	SourceBranch string
+	TargetBranch string
+	Status       PullRequestStatus
+	MergeMethod  *MergeMethod // Set when merged
+	MergedBy     *string      // FK to identities.id, nullable
+	AssigneeID   *string      // FK to identities.id, nullable
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	MergedAt     *time.Time
+	ClosedAt     *time.Time
+}
+
+// PullRequestListOptions controls filtering for ListPullRequests.
+type PullRequestListOptions struct {
+	Status   *PullRequestStatus
+	AuthorID *string
+}
+
 // IssueListOptions controls filtering for ListIssues.
 type IssueListOptions struct {
 	Status     *IssueStatus
