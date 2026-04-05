@@ -68,11 +68,16 @@ with line-level comments (approve, request_changes, comment). Webhook events
 (opened, closed, merged, review). Commit message keywords (`closes #N`,
 `fixes #N`, `resolves #N`) auto-close issues on merge. 27 E2E tests.
 
-## 8. Flow Integration
+## 8. Flow Integration ✅
 
-Combine becomes Flow's Git forge adapter. Bidirectional webhooks, status
-projection (Flow owns process state, Combine owns code state). Issue status
-in Combine is a projection of Flow's process state.
+[Design](2026-04-05-flow-integration-design.md) · [Plan](plans/2026-04-05-flow-integration-plan.md)
+
+Webhook registration REST API (`/api/v1/repos/{repo}/webhooks`) for
+programmatic webhook management. Five endpoints: create, list, get, update,
+delete. Events specified as strings, stored as integers. Push webhook payload
+already includes commit details (SHA, message, author, timestamp).
+Commit-issue linking handled by Flow's Combine adapter using push webhook
+data.
 
 ## 9. MCP Bridge
 
