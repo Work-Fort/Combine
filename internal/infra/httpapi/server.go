@@ -27,7 +27,6 @@ func NewRouter(ctx context.Context, passport *PassportAuth) http.Handler {
 		// is greedy and will swallow /repos/{repo}/issues paths otherwise.
 		RegisterIssueRoutes(api)
 		RegisterPullRequestRoutes(api)
-		RegisterReviewRoutes(api)
 		RegisterRepoRoutes(api)
 		RegisterKeyRoutes(api)
 	}

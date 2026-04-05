@@ -36,21 +36,31 @@ func listReviewsByPRID(ctx context.Context, q querier, prID int64) ([]*domain.Pu
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
 	var reviews []*domain.PullRequestReview
 	for rows.Next() {
 		var r domain.PullRequestReview
 		if err := rows.Scan(&r.ID, &r.PRID, &r.AuthorID, &r.State, &r.Body, &r.CreatedAt); err != nil {
-			return nil, err
-		}
-		r.Comments, err = listReviewComments(ctx, q, r.ID)
-		if err != nil {
+			rows.Close()
 			return nil, err
 		}
 		reviews = append(reviews, &r)
 	}
-	return reviews, rows.Err()
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, err
+	}
+	rows.Close()
+
+	// Fetch comments in a separate loop to avoid holding the rows cursor
+	// while executing additional queries (required for MaxOpenConns=1).
+	for _, r := range reviews {
+		r.Comments, err = listReviewComments(ctx, q, r.ID)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return reviews, nil
 }
 
 func createReviewComment(ctx context.Context, q querier, comment *domain.ReviewComment) error {

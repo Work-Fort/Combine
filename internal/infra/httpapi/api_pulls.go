@@ -70,6 +70,8 @@ func RegisterPullRequestRoutes(r *mux.Router) {
 	r.HandleFunc("/repos/{repo:.+}/pulls/{number:[0-9]+}/diff", handlePullRequestDiff).Methods("GET")
 	r.HandleFunc("/repos/{repo:.+}/pulls/{number:[0-9]+}/commits", handlePullRequestCommits).Methods("GET")
 	r.HandleFunc("/repos/{repo:.+}/pulls/{number:[0-9]+}/files", handlePullRequestFiles).Methods("GET")
+	r.HandleFunc("/repos/{repo:.+}/pulls/{number:[0-9]+}/reviews", handleSubmitReview).Methods("POST")
+	r.HandleFunc("/repos/{repo:.+}/pulls/{number:[0-9]+}/reviews", handleListReviews).Methods("GET")
 }
 
 func prToResponse(ctx context.Context, store domain.Store, pr *domain.PullRequest) pullRequestResponse {

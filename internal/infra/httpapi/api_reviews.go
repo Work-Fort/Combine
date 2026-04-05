@@ -42,12 +42,6 @@ type reviewResponse struct {
 	CreatedAt time.Time               `json:"created_at"`
 }
 
-// RegisterReviewRoutes registers review API routes.
-func RegisterReviewRoutes(r *mux.Router) {
-	r.HandleFunc("/repos/{repo:.+}/pulls/{number:[0-9]+}/reviews", handleListReviews).Methods("GET")
-	r.HandleFunc("/repos/{repo:.+}/pulls/{number:[0-9]+}/reviews", handleSubmitReview).Methods("POST")
-}
-
 func handleListReviews(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	store := domain.StoreFromContext(ctx)
