@@ -89,8 +89,8 @@ type WebhookStore interface {
 	GetWebhookByID(ctx context.Context, repoID int64, id int64) (*Webhook, error)
 	ListWebhooksByRepoID(ctx context.Context, repoID int64) ([]*Webhook, error)
 	ListWebhooksByRepoIDWhereEvent(ctx context.Context, repoID int64, events []int) ([]*Webhook, error)
-	CreateWebhook(ctx context.Context, repoID int64, url string, secret string, contentType int, active bool) (int64, error)
-	UpdateWebhookByID(ctx context.Context, repoID int64, id int64, url string, secret string, contentType int, active bool) error
+	CreateWebhook(ctx context.Context, repoID int64, url string, contentType int, active bool) (int64, error)
+	UpdateWebhookByID(ctx context.Context, repoID int64, id int64, url string, contentType int, active bool) error
 	DeleteWebhookByID(ctx context.Context, id int64) error
 	DeleteWebhookForRepoByID(ctx context.Context, repoID int64, id int64) error
 

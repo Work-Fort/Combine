@@ -3,9 +3,6 @@ package webhook
 import (
 	"bytes"
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -126,13 +123,7 @@ func SendWebhook(ctx context.Context, w domain.Webhook, event Event, payload int
 	headers.Add("X-SoftServe-Delivery", id.String())
 
 	reqBody := buf.String()
-	if w.Secret != "" {
-		sig := hmac.New(sha256.New, []byte(w.Secret))
-		sig.Write([]byte(reqBody)) //nolint: errcheck
-		headers.Add("X-SoftServe-Signature", "sha256="+hex.EncodeToString(sig.Sum(nil)))
-	}
-
-	res, reqErr := do(ctx, w.URL, http.MethodPost, headers, &buf)
+	res, reqErr := do(ctx, w.URL, http.MethodPost, headers, bytes.NewReader([]byte(reqBody)))
 	var reqHeaders string
 	for k, v := range headers {
 		reqHeaders += k + ": " + v[0] + "\n"

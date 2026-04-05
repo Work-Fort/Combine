@@ -335,7 +335,6 @@ type Webhook struct {
 	ID          int64
 	RepoID      int64
 	URL         string
-	Secret      string
 	ContentType int
 	Active      bool
 	CreatedAt   time.Time

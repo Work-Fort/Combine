@@ -56,7 +56,6 @@ func TestSSRFProtection(t *testing.T) {
 			webhook := domain.Webhook{
 				URL:         tt.webhookURL,
 				ContentType: int(ContentTypeJSON),
-				Secret:      "",
 			}
 
 			// Try to send a webhook

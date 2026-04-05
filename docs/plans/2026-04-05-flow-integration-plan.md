@@ -162,7 +162,7 @@ func handleCreateWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ct := contentTypeFromString(req.ContentType)
-	whID, err := store.CreateWebhook(ctx, repo.ID, req.URL, "", ct, active)
+	whID, err := store.CreateWebhook(ctx, repo.ID, req.URL, ct, active)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to create webhook"})
 		return
@@ -298,7 +298,7 @@ func handleUpdateWebhook(w http.ResponseWriter, r *http.Request) {
 		active = *req.Active
 	}
 
-	if err := store.UpdateWebhookByID(ctx, repo.ID, whID, url, "", ct, active); err != nil {
+	if err := store.UpdateWebhookByID(ctx, repo.ID, whID, url, ct, active); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to update webhook"})
 		return
 	}

@@ -13,7 +13,7 @@ import (
 func scanWebhook(row interface{ Scan(dest ...any) error }) (*domain.Webhook, error) {
 	var w domain.Webhook
 	if err := row.Scan(
-		&w.ID, &w.RepoID, &w.URL, &w.Secret, &w.ContentType, &w.Active,
+		&w.ID, &w.RepoID, &w.URL, &w.ContentType, &w.Active,
 		&w.CreatedAt, &w.UpdatedAt,
 	); err != nil {
 		return nil, err
@@ -33,7 +33,7 @@ func scanWebhooks(rows *sql.Rows) ([]*domain.Webhook, error) {
 	return whs, rows.Err()
 }
 
-const webhookColumns = `id, repo_id, url, secret, content_type, active, created_at, updated_at`
+const webhookColumns = `id, repo_id, url, content_type, active, created_at, updated_at`
 
 func scanWebhookEvent(row interface{ Scan(dest ...any) error }) (*domain.WebhookEvent, error) {
 	var e domain.WebhookEvent
@@ -97,7 +97,7 @@ func listWebhooksByRepoIDWhereEvent(ctx context.Context, q querier, repoID int64
 		args = append(args, e)
 	}
 
-	query := `SELECT webhooks.id, webhooks.repo_id, webhooks.url, webhooks.secret, webhooks.content_type, webhooks.active, webhooks.created_at, webhooks.updated_at
+	query := `SELECT webhooks.id, webhooks.repo_id, webhooks.url, webhooks.content_type, webhooks.active, webhooks.created_at, webhooks.updated_at
 		FROM webhooks
 		INNER JOIN webhook_events ON webhooks.id = webhook_events.webhook_id
 		WHERE webhooks.repo_id = ? AND webhook_events.event IN (` + strings.Join(placeholders, ",") + `)`
@@ -110,11 +110,11 @@ func listWebhooksByRepoIDWhereEvent(ctx context.Context, q querier, repoID int64
 	return scanWebhooks(rows)
 }
 
-func createWebhook(ctx context.Context, q querier, repoID int64, url string, secret string, contentType int, active bool) (int64, error) {
+func createWebhook(ctx context.Context, q querier, repoID int64, url string, contentType int, active bool) (int64, error) {
 	res, err := q.ExecContext(ctx,
-		`INSERT INTO webhooks (repo_id, url, secret, content_type, active, updated_at)
-		 VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
-		repoID, url, secret, contentType, active)
+		`INSERT INTO webhooks (repo_id, url, content_type, active, updated_at)
+		 VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+		repoID, url, contentType, active)
 	if err != nil {
 		if isUniqueViolation(err) {
 			return 0, fmt.Errorf("%w: webhook", domain.ErrAlreadyExists)
@@ -125,11 +125,11 @@ func createWebhook(ctx context.Context, q querier, repoID int64, url string, sec
 	return id, nil
 }
 
-func updateWebhookByID(ctx context.Context, q querier, repoID int64, id int64, url string, secret string, contentType int, active bool) error {
+func updateWebhookByID(ctx context.Context, q querier, repoID int64, id int64, url string, contentType int, active bool) error {
 	_, err := q.ExecContext(ctx,
-		`UPDATE webhooks SET url = ?, secret = ?, content_type = ?, active = ?, updated_at = CURRENT_TIMESTAMP
+		`UPDATE webhooks SET url = ?, content_type = ?, active = ?, updated_at = CURRENT_TIMESTAMP
 		 WHERE repo_id = ? AND id = ?`,
-		url, secret, contentType, active, repoID, id)
+		url, contentType, active, repoID, id)
 	return err
 }
 
@@ -282,11 +282,11 @@ func (s *Store) ListWebhooksByRepoID(ctx context.Context, repoID int64) ([]*doma
 func (s *Store) ListWebhooksByRepoIDWhereEvent(ctx context.Context, repoID int64, events []int) ([]*domain.Webhook, error) {
 	return listWebhooksByRepoIDWhereEvent(ctx, s.q(), repoID, events)
 }
-func (s *Store) CreateWebhook(ctx context.Context, repoID int64, url string, secret string, contentType int, active bool) (int64, error) {
-	return createWebhook(ctx, s.q(), repoID, url, secret, contentType, active)
+func (s *Store) CreateWebhook(ctx context.Context, repoID int64, url string, contentType int, active bool) (int64, error) {
+	return createWebhook(ctx, s.q(), repoID, url, contentType, active)
 }
-func (s *Store) UpdateWebhookByID(ctx context.Context, repoID int64, id int64, url string, secret string, contentType int, active bool) error {
-	return updateWebhookByID(ctx, s.q(), repoID, id, url, secret, contentType, active)
+func (s *Store) UpdateWebhookByID(ctx context.Context, repoID int64, id int64, url string, contentType int, active bool) error {
+	return updateWebhookByID(ctx, s.q(), repoID, id, url, contentType, active)
 }
 func (s *Store) DeleteWebhookByID(ctx context.Context, id int64) error {
 	return deleteWebhookByID(ctx, s.q(), id)
@@ -333,11 +333,11 @@ func (ts *txStore) ListWebhooksByRepoID(ctx context.Context, repoID int64) ([]*d
 func (ts *txStore) ListWebhooksByRepoIDWhereEvent(ctx context.Context, repoID int64, events []int) ([]*domain.Webhook, error) {
 	return listWebhooksByRepoIDWhereEvent(ctx, ts.q(), repoID, events)
 }
-func (ts *txStore) CreateWebhook(ctx context.Context, repoID int64, url string, secret string, contentType int, active bool) (int64, error) {
-	return createWebhook(ctx, ts.q(), repoID, url, secret, contentType, active)
+func (ts *txStore) CreateWebhook(ctx context.Context, repoID int64, url string, contentType int, active bool) (int64, error) {
+	return createWebhook(ctx, ts.q(), repoID, url, contentType, active)
 }
-func (ts *txStore) UpdateWebhookByID(ctx context.Context, repoID int64, id int64, url string, secret string, contentType int, active bool) error {
-	return updateWebhookByID(ctx, ts.q(), repoID, id, url, secret, contentType, active)
+func (ts *txStore) UpdateWebhookByID(ctx context.Context, repoID int64, id int64, url string, contentType int, active bool) error {
+	return updateWebhookByID(ctx, ts.q(), repoID, id, url, contentType, active)
 }
 func (ts *txStore) DeleteWebhookByID(ctx context.Context, id int64) error {
 	return deleteWebhookByID(ctx, ts.q(), id)

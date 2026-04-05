@@ -11,14 +11,14 @@ import (
 )
 
 // CreateWebhook creates a webhook for a repository.
-func (b *Backend) CreateWebhook(ctx context.Context, repo *domain.Repo, url string, contentType webhook.ContentType, secret string, events []webhook.Event, active bool) error {
+func (b *Backend) CreateWebhook(ctx context.Context, repo *domain.Repo, url string, contentType webhook.ContentType, events []webhook.Event, active bool) error {
 	// Validate webhook URL to prevent SSRF attacks
 	if err := webhook.ValidateWebhookURL(url); err != nil {
 		return err //nolint:wrapcheck
 	}
 
 	return b.store.Transaction(ctx, func(tx domain.Store) error {
-		lastID, err := tx.CreateWebhook(ctx, repo.ID, url, secret, int(contentType), active)
+		lastID, err := tx.CreateWebhook(ctx, repo.ID, url, int(contentType), active)
 		if err != nil {
 			return err
 		}
@@ -103,14 +103,14 @@ func (b *Backend) ListWebhooks(ctx context.Context, repo *domain.Repo) ([]webhoo
 }
 
 // UpdateWebhook updates a webhook.
-func (b *Backend) UpdateWebhook(ctx context.Context, repo *domain.Repo, id int64, url string, contentType webhook.ContentType, secret string, updatedEvents []webhook.Event, active bool) error {
+func (b *Backend) UpdateWebhook(ctx context.Context, repo *domain.Repo, id int64, url string, contentType webhook.ContentType, updatedEvents []webhook.Event, active bool) error {
 	// Validate webhook URL to prevent SSRF attacks
 	if err := webhook.ValidateWebhookURL(url); err != nil {
 		return err
 	}
 
 	return b.store.Transaction(ctx, func(tx domain.Store) error {
-		if err := tx.UpdateWebhookByID(ctx, repo.ID, id, url, secret, int(contentType), active); err != nil {
+		if err := tx.UpdateWebhookByID(ctx, repo.ID, id, url, int(contentType), active); err != nil {
 			return err
 		}
 
