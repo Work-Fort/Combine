@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Add webhook registration REST API so Flow can programmatically register webhook callbacks. Verify push payload includes commit details (already confirmed -- no code change needed). The `secret` field is optional -- within WorkFort's internal network, HMAC signing is unnecessary since services authenticate via Passport tokens.
+**Goal:** Add webhook registration REST API so Flow can programmatically register webhook callbacks. Verify push payload includes commit details (already confirmed -- no code change needed).
 
 **Architecture:** New handler file `internal/infra/httpapi/api_webhooks.go` following the same pattern as `api_issues.go`. Direct store access, Passport auth via existing middleware. Event names mapped via `webhook.ParseEvent()` / `Event.String()`.
 
@@ -36,7 +36,6 @@ import (
 
 type createWebhookRequest struct {
 	URL         string   `json:"url"`
-	Secret      string   `json:"secret,omitempty"`
 	Events      []string `json:"events"`
 	ContentType string   `json:"content_type,omitempty"`
 	Active      *bool    `json:"active,omitempty"`
@@ -44,7 +43,6 @@ type createWebhookRequest struct {
 
 type updateWebhookRequest struct {
 	URL         *string  `json:"url,omitempty"`
-	Secret      *string  `json:"secret,omitempty"`
 	Events      []string `json:"events,omitempty"`
 	ContentType *string  `json:"content_type,omitempty"`
 	Active      *bool    `json:"active,omitempty"`
@@ -164,7 +162,7 @@ func handleCreateWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ct := contentTypeFromString(req.ContentType)
-	whID, err := store.CreateWebhook(ctx, repo.ID, req.URL, req.Secret, ct, active)
+	whID, err := store.CreateWebhook(ctx, repo.ID, req.URL, "", ct, active)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to create webhook"})
 		return
@@ -291,10 +289,6 @@ func handleUpdateWebhook(w http.ResponseWriter, r *http.Request) {
 	if req.URL != nil {
 		url = *req.URL
 	}
-	secret := existing.Secret
-	if req.Secret != nil {
-		secret = *req.Secret
-	}
 	ct := existing.ContentType
 	if req.ContentType != nil {
 		ct = contentTypeFromString(*req.ContentType)
@@ -304,7 +298,7 @@ func handleUpdateWebhook(w http.ResponseWriter, r *http.Request) {
 		active = *req.Active
 	}
 
-	if err := store.UpdateWebhookByID(ctx, repo.ID, whID, url, secret, ct, active); err != nil {
+	if err := store.UpdateWebhookByID(ctx, repo.ID, whID, url, "", ct, active); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to update webhook"})
 		return
 	}

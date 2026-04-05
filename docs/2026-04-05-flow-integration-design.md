@@ -62,11 +62,6 @@ Webhook response:
 }
 ```
 
-Note: `secret` is an optional write-only field (accepted on create/update,
-never returned in responses). When omitted or empty, webhook payloads are
-delivered without HMAC signing. Within the WorkFort internal network, HMAC
-signing is unnecessary since services authenticate via Passport tokens.
-
 **Content type:** The existing `ContentType` in `webhook/webhook.go` supports
 `json` (0) and `form` (1). Default to `json` if not specified.
 
