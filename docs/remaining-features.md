@@ -88,10 +88,13 @@ exposing Combine's REST API as MCP tools. 25 tools covering repos, issues,
 pull requests, webhooks, and SSH keys. Uses `mcp-go` library. Configured
 with `--server-url` and `--token` flags. E2E tested.
 
-## 10. Docker Image + Release Flow
+## 10. Docker Image + Release Flow ✅
 
-Dockerfile and GitHub Actions release workflow for building and publishing
-container images to GHCR, matching Sharkfin's pattern.
+[Design](2026-04-07-docker-release-design.md) · [Plan](plans/2026-04-07-docker-release-plan.md)
+
+Multi-stage Dockerfile (golang build + alpine runtime) with version info
+injected via ldflags. GitHub Actions release workflow publishes to GHCR on
+`v*` tags with semver and SHA tagging. Build cache via GitHub Actions cache.
 
 ## 11. CI/CD
 
