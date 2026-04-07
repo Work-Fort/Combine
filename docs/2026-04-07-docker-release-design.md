@@ -18,7 +18,7 @@ The existing `Dockerfile` is a legacy artifact from Soft Serve. It expects a pre
 Multi-stage build matching Sharkfin's pattern:
 
 **Build stage** (`alpine:3.21`):
-- Install git (needed for `go build` with VCS stamping) and Go toolchain
+- Go toolchain (git is not needed in the build stage; commit metadata is passed as build args)
 - Combine does not use mise, so Go is installed directly via Alpine's package or a specific version download
 - Build a static binary with `CGO_ENABLED=0`, trimpath, and stripped symbols
 - Inject version, commit SHA, and commit date via ldflags targeting `github.com/Work-Fort/Combine/cmd`
@@ -53,7 +53,7 @@ A single workflow `.github/workflows/release.yml` triggered on push of version t
 
 Tags produced:
 - `ghcr.io/work-fort/combine:v1.2.3` (exact version)
-- `ghcr.io/work-fort/combine:latest` (for stable releases)
+- `ghcr.io/work-fort/combine:latest` (when tagged on the default branch)
 
 ### .dockerignore
 
@@ -74,5 +74,5 @@ testdata
 | Build tooling | mise + mise tasks | Direct `go build` |
 | Runtime deps | ca-certificates only | ca-certificates + git |
 | Ports | None exposed | 23231, 23232, 23233 |
-| Volumes | None | /combine (data dir) |
+| Volumes | None | /combine-data (data dir) |
 | Entrypoint | `sharkfin daemon` | `combine serve` |
