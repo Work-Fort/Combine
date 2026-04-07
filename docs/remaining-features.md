@@ -88,7 +88,12 @@ exposing Combine's REST API as MCP tools. 25 tools covering repos, issues,
 pull requests, webhooks, and SSH keys. Uses `mcp-go` library. Configured
 with `--server-url` and `--token` flags. E2E tested.
 
-## 10. CI/CD
+## 10. Docker Image + Release Flow
+
+Dockerfile and GitHub Actions release workflow for building and publishing
+container images to GHCR, matching Sharkfin's pattern.
+
+## 11. CI/CD
 
 Build and deployment pipelines using Nexus.
 
