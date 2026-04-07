@@ -79,11 +79,14 @@ already includes commit details (SHA, message, author, timestamp).
 Commit-issue linking handled by Flow's Combine adapter using push webhook
 data.
 
-## 9. MCP Bridge
+## 9. MCP Bridge ✅
 
-`combine mcp-bridge` stdio-to-HTTP bridge for Claude Code. MCP tools for
-repo management, issue CRUD, pull request management, webhook configuration.
-Implemented last since it wraps the full API surface.
+[Design](2026-04-05-mcp-bridge-design.md) · [Plan](plans/2026-04-05-mcp-bridge-plan.md)
+
+Standalone `combine mcp-bridge` command that runs an MCP server on stdio,
+exposing Combine's REST API as MCP tools. 25 tools covering repos, issues,
+pull requests, webhooks, and SSH keys. Uses `mcp-go` library. Configured
+with `--server-url` and `--token` flags. E2E tested.
 
 ## 10. CI/CD
 

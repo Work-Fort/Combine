@@ -4,6 +4,7 @@ import (
 	"github.com/Work-Fort/Combine/cmd"
 	"github.com/Work-Fort/Combine/cmd/combine/admin"
 	"github.com/Work-Fort/Combine/cmd/combine/hook"
+	"github.com/Work-Fort/Combine/cmd/mcpbridge"
 	mcobra "github.com/muesli/mango-cobra"
 	"github.com/muesli/roff"
 
@@ -37,6 +38,7 @@ func init() {
 		manCmd,
 		hook.Command,
 		admin.Command,
+		mcpbridge.NewCmd(),
 	)
 }
 
