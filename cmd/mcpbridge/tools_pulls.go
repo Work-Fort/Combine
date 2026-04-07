@@ -209,6 +209,7 @@ func registerPullRequestTools(s *server.MCPServer, client *apiClient) {
 			mcp.WithNumber("number", mcp.Required(), mcp.Description("PR number")),
 			mcp.WithString("event", mcp.Required(), mcp.Description("Review event: approve, request_changes, comment")),
 			mcp.WithString("body", mcp.Description("Review body")),
+			mcp.WithArray("comments", mcp.Description("Line-level review comments")),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			repo, err := request.RequireString("repo")
