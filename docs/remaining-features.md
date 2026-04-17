@@ -109,3 +109,10 @@ Build and deployment pipelines using Nexus.
 Per-repo btrfs subvolumes with configurable quotas. Deferred — requires
 capability management and sidecar binaries (elevated permissions pattern).
 Not part of the initial core feature set.
+
+---
+
+## Bugs / Follow-ups
+
+- [ ] **No mise tasks** — `combine/lead` has neither `mise.toml` nor `.mise/tasks/`. Build goes through `go build` directly, which breaks the "use mise tasks" convention established for all other Go services in WorkFort. Add parity tasks (`build:release`, `build:dev`, `test`, `lint`, `docker:build`, `install:local`) matching the shape in hive/sharkfin/flow.
+- [ ] **No standard `/ui/health` manifest** — Combine returns `{service, routes, version}` from `/ui/health` where Pylon expects `{name, label, route, ws_paths, ...}`. Pylon marks it connected but with empty `name`/`label`, so it shows as an unnamed dot in Scope's top nav and `pylon.ServiceByName("combine")` returns nothing. Align the response shape with the manifest Pylon consumes.
