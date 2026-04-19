@@ -1,6 +1,6 @@
 module github.com/Work-Fort/Combine
 
-go 1.25.0
+go 1.26.0
 
 require (
 	charm.land/log/v2 v2.0.0-20251110204020-529bb77f35da
