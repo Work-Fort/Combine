@@ -6,7 +6,7 @@ type contextKey struct{ name string }
 
 var (
 	repoContextKey        = &contextKey{"repo"}
-	userContextKey        = &contextKey{"user"}
+	identityContextKey    = &contextKey{"identity"}
 	storeContextKey       = &contextKey{"store"}
 	accessLevelContextKey = &contextKey{"access-level"}
 )
@@ -24,17 +24,23 @@ func WithRepoContext(ctx context.Context, r *Repo) context.Context {
 	return context.WithValue(ctx, repoContextKey, r)
 }
 
-// UserFromContext returns the user from the context.
-func UserFromContext(ctx context.Context) *User {
-	if u, ok := ctx.Value(userContextKey).(*User); ok {
-		return u
+// IdentityFromContext returns the identity from the context.
+func IdentityFromContext(ctx context.Context) *Identity {
+	if id, ok := ctx.Value(identityContextKey).(*Identity); ok {
+		return id
 	}
 	return nil
 }
 
-// WithUserContext returns a new context with the given user.
-func WithUserContext(ctx context.Context, u *User) context.Context {
-	return context.WithValue(ctx, userContextKey, u)
+// WithIdentityContext returns a new context with the given identity.
+func WithIdentityContext(ctx context.Context, id *Identity) context.Context {
+	return context.WithValue(ctx, identityContextKey, id)
+}
+
+// IdentityContextKey returns the context key used for identities.
+// Exposed for SSH session context which uses SetValue directly.
+func IdentityContextKey() *contextKey {
+	return identityContextKey
 }
 
 // StoreFromContext returns the store from the context.
@@ -63,29 +69,8 @@ func WithAccessLevelContext(ctx context.Context, ac AccessLevel) context.Context
 	return context.WithValue(ctx, accessLevelContextKey, ac)
 }
 
-var identityContextKey = &contextKey{"identity"}
-
-// IdentityFromContext returns the identity from the context.
-func IdentityFromContext(ctx context.Context) *Identity {
-	if id, ok := ctx.Value(identityContextKey).(*Identity); ok {
-		return id
-	}
-	return nil
-}
-
-// WithIdentityContext returns a new context with the given identity.
-func WithIdentityContext(ctx context.Context, id *Identity) context.Context {
-	return context.WithValue(ctx, identityContextKey, id)
-}
-
-// UserContextKey returns the context key used for users.
-// This is exposed for SSH session context which uses SetValue directly.
-func UserContextKey() *contextKey {
-	return userContextKey
-}
-
 // StoreContextKey returns the context key used for the store.
-// This is exposed for SSH session context which uses SetValue directly.
+// Exposed for SSH session context which uses SetValue directly.
 func StoreContextKey() *contextKey {
 	return storeContextKey
 }

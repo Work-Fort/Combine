@@ -5,8 +5,6 @@ import (
 	"errors"
 	"time"
 
-	"golang.org/x/crypto/ssh"
-
 	"github.com/google/uuid"
 )
 
@@ -91,7 +89,7 @@ type Repo struct {
 	Private     bool
 	Mirror      bool
 	Hidden      bool
-	UserID      *int64
+	IdentityID  *string
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
@@ -107,26 +105,9 @@ type RepoOptions struct {
 	LFSEndpoint string
 }
 
-// User represents a user.
-type User struct {
-	ID        int64
-	Username  string
-	Admin     bool
-	Password  string
-	CreatedAt time.Time
-	UpdatedAt time.Time
-}
-
-// UserOptions are options for creating a user.
-type UserOptions struct {
-	Admin      bool
-	PublicKeys []ssh.PublicKey
-}
-
-// PublicKey represents a public key.
+// PublicKey represents an SSH public key belonging to an identity.
 type PublicKey struct {
 	ID        int64
-	UserID    int64
 	PublicKey string
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -136,21 +117,10 @@ type PublicKey struct {
 type Collab struct {
 	ID          int64
 	RepoID      int64
-	UserID      int64
+	IdentityID  string
 	AccessLevel AccessLevel
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
-}
-
-// AccessToken represents an access token.
-type AccessToken struct {
-	ID        int64
-	Name      string
-	UserID    int64
-	Token     string
-	ExpiresAt *time.Time
-	CreatedAt time.Time
-	UpdatedAt time.Time
 }
 
 // Settings represents a settings record.
@@ -174,13 +144,13 @@ type LFSObject struct {
 
 // LFSLock is a Git LFS lock.
 type LFSLock struct {
-	ID        int64
-	Path      string
-	UserID    int64
-	RepoID    int64
-	Refname   string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID         int64
+	Path       string
+	IdentityID string
+	RepoID     int64
+	Refname    string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 // Identity represents a Passport-authenticated identity stored locally.

@@ -3,7 +3,6 @@ package domain
 import (
 	"context"
 	"io"
-	"time"
 
 	"golang.org/x/crypto/ssh"
 
@@ -14,36 +13,19 @@ import (
 type RepoStore interface {
 	GetRepoByName(ctx context.Context, name string) (*Repo, error)
 	ListRepos(ctx context.Context) ([]*Repo, error)
-	ListReposByUserID(ctx context.Context, userID int64) ([]*Repo, error)
+	ListReposByIdentityID(ctx context.Context, identityID string) ([]*Repo, error)
 	CreateRepo(ctx context.Context, repo *Repo) error
 	UpdateRepo(ctx context.Context, repo *Repo) error
 	DeleteRepoByName(ctx context.Context, name string) error
 }
 
-// UserStore is the port for user persistence.
-type UserStore interface {
-	GetUserByID(ctx context.Context, id int64) (*User, error)
-	GetUserByUsername(ctx context.Context, username string) (*User, error)
-	GetUserByPublicKey(ctx context.Context, pk ssh.PublicKey) (*User, error)
-	GetUserByAccessToken(ctx context.Context, token string) (*User, error)
-	ListUsers(ctx context.Context) ([]*User, error)
-	CreateUser(ctx context.Context, username string, isAdmin bool, pks []ssh.PublicKey) error
-	DeleteUserByUsername(ctx context.Context, username string) error
-	UpdateUser(ctx context.Context, user *User) error
-	AddPublicKeyByUsername(ctx context.Context, username string, pk ssh.PublicKey) error
-	RemovePublicKeyByUsername(ctx context.Context, username string, pk ssh.PublicKey) error
-	ListPublicKeysByUserID(ctx context.Context, id int64) ([]ssh.PublicKey, error)
-	ListPublicKeysByUsername(ctx context.Context, username string) ([]ssh.PublicKey, error)
-	SetUserPassword(ctx context.Context, userID int64, password string) error
-}
-
 // CollabStore is the port for collaborator persistence.
 type CollabStore interface {
-	GetCollabByUsernameAndRepo(ctx context.Context, username, repo string) (*Collab, error)
-	AddCollabByUsernameAndRepo(ctx context.Context, username, repo string, level AccessLevel) error
-	RemoveCollabByUsernameAndRepo(ctx context.Context, username, repo string) error
+	GetCollabByIdentityAndRepo(ctx context.Context, identityID, repo string) (*Collab, error)
+	AddCollabByIdentityAndRepo(ctx context.Context, identityID, repo string, level AccessLevel) error
+	RemoveCollabByIdentityAndRepo(ctx context.Context, identityID, repo string) error
 	ListCollabsByRepo(ctx context.Context, repo string) ([]*Collab, error)
-	ListCollabsByRepoAsUsers(ctx context.Context, repo string) ([]*User, error)
+	ListCollabsByRepoAsIdentities(ctx context.Context, repo string) ([]*Identity, error)
 }
 
 // SettingStore is the port for settings persistence.
@@ -54,16 +36,6 @@ type SettingStore interface {
 	SetAllowKeylessAccess(ctx context.Context, allow bool) error
 }
 
-// AccessTokenStore is the port for access token persistence.
-type AccessTokenStore interface {
-	GetAccessToken(ctx context.Context, id int64) (*AccessToken, error)
-	GetAccessTokenByToken(ctx context.Context, token string) (*AccessToken, error)
-	ListAccessTokensByUserID(ctx context.Context, userID int64) ([]*AccessToken, error)
-	CreateAccessToken(ctx context.Context, name string, userID int64, token string, expiresAt time.Time) (*AccessToken, error)
-	DeleteAccessToken(ctx context.Context, id int64) error
-	DeleteAccessTokenForUser(ctx context.Context, userID, id int64) error
-}
-
 // LFSStore is the port for Git LFS persistence.
 type LFSStore interface {
 	CreateLFSObject(ctx context.Context, repoID int64, oid string, size int64) error
@@ -72,16 +44,16 @@ type LFSStore interface {
 	ListLFSObjectsByName(ctx context.Context, name string) ([]*LFSObject, error)
 	DeleteLFSObjectByOid(ctx context.Context, repoID int64, oid string) error
 
-	CreateLFSLockForUser(ctx context.Context, repoID, userID int64, path, refname string) error
+	CreateLFSLockForIdentity(ctx context.Context, repoID int64, identityID, path, refname string) error
 	ListLFSLocks(ctx context.Context, repoID int64, page, limit int) ([]*LFSLock, error)
 	ListLFSLocksWithCount(ctx context.Context, repoID int64, page, limit int) ([]*LFSLock, int64, error)
-	ListLFSLocksForUser(ctx context.Context, repoID, userID int64) ([]*LFSLock, error)
+	ListLFSLocksForIdentity(ctx context.Context, repoID int64, identityID string) ([]*LFSLock, error)
 	GetLFSLockForPath(ctx context.Context, repoID int64, path string) (*LFSLock, error)
-	GetLFSLockForUserPath(ctx context.Context, repoID, userID int64, path string) (*LFSLock, error)
+	GetLFSLockForIdentityPath(ctx context.Context, repoID int64, identityID, path string) (*LFSLock, error)
 	GetLFSLockByID(ctx context.Context, id int64) (*LFSLock, error)
-	GetLFSLockForUserByID(ctx context.Context, repoID, userID, id int64) (*LFSLock, error)
+	GetLFSLockForIdentityByID(ctx context.Context, repoID int64, identityID string, id int64) (*LFSLock, error)
 	DeleteLFSLock(ctx context.Context, repoID, id int64) error
-	DeleteLFSLockForUserByID(ctx context.Context, repoID, userID, id int64) error
+	DeleteLFSLockForIdentityByID(ctx context.Context, repoID int64, identityID string, id int64) error
 }
 
 // WebhookStore is the port for webhook persistence.
@@ -152,10 +124,8 @@ type ReviewStore interface {
 // Store is the composite port for all persistence operations.
 type Store interface {
 	RepoStore
-	UserStore
 	CollabStore
 	SettingStore
-	AccessTokenStore
 	LFSStore
 	WebhookStore
 	IdentityStore
