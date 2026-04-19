@@ -10,6 +10,11 @@ import (
 
 func TestDaemonStop_KillsProcessGroup(t *testing.T) {
 	binary := os.Getenv("COMBINE_BINARY")
+	// Use a sibling DB so this test doesn't race with combine_test package
+	// which runs concurrently under `go test ./...` and resets the same schema.
+	if os.Getenv("COMBINE_DB_DRIVER") == "postgres" {
+		t.Setenv("COMBINE_DB_DATA_SOURCE", AltDB(t))
+	}
 
 	// Capture pid+pgid via a closure that StartDaemon's cleanup can
 	// fill, then register the ESRCH assertion BEFORE StartDaemon so

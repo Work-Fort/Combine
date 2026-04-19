@@ -386,20 +386,21 @@ func runGitExpectFail(t *testing.T, dir string, extraEnv []string, args ...strin
 
 // resetPostgres drops and recreates the public schema so each test
 // starts from a clean database. Goose migrations re-run on daemon startup.
+// All three DDL statements run in a single transaction to avoid a window
+// where a concurrent connection sees the schema but lacks permissions.
 func resetPostgres(dsn string) error {
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		return fmt.Errorf("open: %w", err)
 	}
 	defer db.Close()
-	if _, err := db.Exec("DROP SCHEMA IF EXISTS public CASCADE"); err != nil {
-		return fmt.Errorf("drop schema: %w", err)
-	}
-	if _, err := db.Exec("CREATE SCHEMA public"); err != nil {
-		return fmt.Errorf("create schema: %w", err)
-	}
-	if _, err := db.Exec("GRANT ALL ON SCHEMA public TO PUBLIC"); err != nil {
-		return fmt.Errorf("grant schema: %w", err)
+	_, err = db.Exec(`
+		DROP SCHEMA IF EXISTS public CASCADE;
+		CREATE SCHEMA public;
+		GRANT ALL ON SCHEMA public TO PUBLIC;
+	`)
+	if err != nil {
+		return fmt.Errorf("reset schema: %w", err)
 	}
 	return nil
 }
