@@ -72,8 +72,13 @@ func NewCollaboratorEvent(ctx context.Context, identity *domain.Identity, repo *
 		return CollaboratorEvent{}, err
 	}
 
+	collabIdentity, err := datastore.GetIdentityByID(ctx, collabIdentityID)
+	if err != nil {
+		return CollaboratorEvent{}, err
+	}
+
 	payload.AccessLevel = collab.AccessLevel
-	payload.Collaborator.Username = collabIdentityID
+	payload.Collaborator.Username = collabIdentity.Username
 
 	return payload, nil
 }
