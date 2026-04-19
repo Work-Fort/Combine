@@ -2,7 +2,7 @@
 type: plan
 step: "mise-ci-dual-backend"
 title: "Combine: mise toolchain + CI dual-backend matrix"
-status: approved
+status: complete
 assessment_status: complete
 provenance:
   source: roadmap
@@ -11,7 +11,7 @@ provenance:
 dates:
   created: "2026-04-19"
   approved: "2026-04-19"
-  completed: null
+  completed: "2026-04-19"
 related_plans:
   - "2026-04-19-e2e-harness-orphan-leak-hardening.md"
 ---
