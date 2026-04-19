@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"charm.land/log/v2"
 	"github.com/charmbracelet/ssh"
 	"github.com/spf13/cobra"
+	gossh "golang.org/x/crypto/ssh"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/Work-Fort/Combine/internal/app/backend"
@@ -95,6 +97,13 @@ func runDaemon(ctx context.Context, syncHooksFlag bool) error {
 	defer store.Close()
 
 	ctx = domain.WithStoreContext(ctx, store)
+
+	// Ensure each config admin key has a corresponding identity in the DB so
+	// that LFS authenticate (which needs a real identity for JWT generation)
+	// can resolve it via store.GetIdentityByPublicKey.
+	if err := seedAdminKeyIdentities(ctx, cfg, store, logger); err != nil {
+		return fmt.Errorf("seed admin key identities: %w", err)
+	}
 
 	// Create backend
 	beCfg := backend.BackendConfig{
@@ -267,6 +276,33 @@ func runDaemon(ctx context.Context, syncHooksFlag bool) error {
 	})
 
 	return shutdownGroup.Wait()
+}
+
+// seedAdminKeyIdentities upserts a synthetic admin identity for each public key
+// listed in the config's initial_admin_keys. This allows LFSAuthenticate to
+// resolve a real identity for JWT generation even when the key has never been
+// registered through Passport/API.
+func seedAdminKeyIdentities(ctx context.Context, cfg *config.Config, store domain.Store, logger *log.Logger) error {
+	for _, pk := range cfg.AdminKeys() {
+		fp := gossh.FingerprintSHA256(pk)
+		// Strip "SHA256:" prefix to get a valid identifier segment
+		id := strings.TrimPrefix(fp, "SHA256:")
+		username := "admin-key-" + id[:12]
+		displayName := "Admin Key (" + id[:12] + ")"
+
+		identity, err := store.UpsertIdentity(ctx, id, username, displayName, "user")
+		if err != nil {
+			return fmt.Errorf("upsert admin key identity %s: %w", id[:12], err)
+		}
+		if err := store.SetIdentityAdmin(ctx, identity.ID, true); err != nil {
+			return fmt.Errorf("set admin flag for %s: %w", id[:12], err)
+		}
+		if err := store.AddIdentityPublicKey(ctx, identity.ID, pk); err != nil &&
+			!errors.Is(err, domain.ErrAlreadyExists) {
+			return fmt.Errorf("register admin key %s: %w", id[:12], err)
+		}
+	}
+	return nil
 }
 
 func initializeHooks(ctx context.Context, cfg *config.Config, be *backend.Backend) error {
