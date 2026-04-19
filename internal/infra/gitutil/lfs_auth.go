@@ -29,9 +29,9 @@ func LFSAuthenticate(ctx context.Context, cmd ServiceCommand) error {
 		return errors.New("invalid operation")
 	}
 
-	user := domain.UserFromContext(ctx)
-	if user == nil {
-		logger.Errorf("missing user")
+	identity := domain.IdentityFromContext(ctx)
+	if identity == nil {
+		logger.Errorf("missing identity")
 		return domain.ErrUserNotFound
 	}
 
@@ -52,7 +52,7 @@ func LFSAuthenticate(ctx context.Context, cmd ServiceCommand) error {
 	expiresIn := time.Minute * 5
 	expiresAt := now.Add(expiresIn)
 	claims := jwt.RegisteredClaims{
-		Subject:   fmt.Sprintf("%s#%d", user.Username, user.ID),
+		Subject:   fmt.Sprintf("%s#%s", identity.Username, identity.ID),
 		ExpiresAt: jwt.NewNumericDate(expiresAt),
 		NotBefore: jwt.NewNumericDate(now),
 		IssuedAt:  jwt.NewNumericDate(now),

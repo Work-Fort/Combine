@@ -190,21 +190,21 @@ func (t *lfsTransfer) Verify(oid string, size int64, _ transfer.Args) (transfer.
 
 type lfsLockBackend struct {
 	*lfsTransfer
-	args map[string]string
-	user *domain.User
+	args     map[string]string
+	identity *domain.Identity
 }
 
 var _ transfer.LockBackend = (*lfsLockBackend)(nil)
 
 // LockBackend implements transfer.Backend.
 func (t *lfsTransfer) LockBackend(args transfer.Args) transfer.LockBackend {
-	user := domain.UserFromContext(t.ctx)
-	if user == nil {
-		t.logger.Errorf("no user in context while creating lock backend, repo %s", t.repo.Name)
+	identity := domain.IdentityFromContext(t.ctx)
+	if identity == nil {
+		t.logger.Errorf("no identity in context while creating lock backend, repo %s", t.repo.Name)
 		return nil
 	}
 
-	return &lfsLockBackend{t, args, user}
+	return &lfsLockBackend{t, args, identity}
 }
 
 // Create implements transfer.LockBackend.
@@ -212,18 +212,18 @@ func (l *lfsLockBackend) Create(path, refname string) (transfer.Lock, error) {
 	var lock LFSLock
 
 	if err := l.store.Transaction(l.ctx, func(tx domain.Store) error {
-		if err := tx.CreateLFSLockForUser(l.ctx, l.repo.ID, l.user.ID, path, refname); err != nil {
+		if err := tx.CreateLFSLockForIdentity(l.ctx, l.repo.ID, l.identity.ID, path, refname); err != nil {
 			return err
 		}
 
 		var err error
-		lk, err := tx.GetLFSLockForUserPath(l.ctx, l.repo.ID, l.user.ID, path)
+		lk, err := tx.GetLFSLockForIdentityPath(l.ctx, l.repo.ID, l.identity.ID, path)
 		if err != nil {
 			return err
 		}
 		lock.lock = lk
 
-		owner, err := tx.GetUserByID(l.ctx, lk.UserID)
+		owner, err := tx.GetIdentityByID(l.ctx, lk.IdentityID)
 		if err != nil {
 			return err
 		}
@@ -251,13 +251,13 @@ func (l *lfsLockBackend) FromID(id string) (transfer.Lock, error) {
 	}
 
 	if err := l.store.Transaction(l.ctx, func(tx domain.Store) error {
-		lk, err := tx.GetLFSLockForUserByID(l.ctx, l.repo.ID, l.user.ID, iid)
+		lk, err := tx.GetLFSLockForIdentityByID(l.ctx, l.repo.ID, l.identity.ID, iid)
 		if err != nil {
 			return err
 		}
 		lock.lock = lk
 
-		owner, err := tx.GetUserByID(l.ctx, lk.UserID)
+		owner, err := tx.GetIdentityByID(l.ctx, lk.IdentityID)
 		if err != nil {
 			return err
 		}
@@ -281,13 +281,13 @@ func (l *lfsLockBackend) FromPath(path string) (transfer.Lock, error) {
 	var lock LFSLock
 
 	if err := l.store.Transaction(l.ctx, func(tx domain.Store) error {
-		lk, err := tx.GetLFSLockForUserPath(l.ctx, l.repo.ID, l.user.ID, path)
+		lk, err := tx.GetLFSLockForIdentityPath(l.ctx, l.repo.ID, l.identity.ID, path)
 		if err != nil {
 			return err
 		}
 		lock.lock = lk
 
-		owner, err := tx.GetUserByID(l.ctx, lk.UserID)
+		owner, err := tx.GetIdentityByID(l.ctx, lk.IdentityID)
 		if err != nil {
 			return err
 		}
@@ -333,16 +333,16 @@ func (l *lfsLockBackend) Range(cursor string, limit int, fn func(transfer.Lock) 
 			nextCursor = strconv.Itoa(page + 1)
 		}
 
-		users := make(map[int64]*domain.User, 0)
+		identities := make(map[string]*domain.Identity, 0)
 		for _, mlock := range mlocks {
-			owner, ok := users[mlock.UserID]
+			owner, ok := identities[mlock.IdentityID]
 			if !ok {
-				owner, err = tx.GetUserByID(l.ctx, mlock.UserID)
+				owner, err = tx.GetIdentityByID(l.ctx, mlock.IdentityID)
 				if err != nil {
 					return err
 				}
 
-				users[mlock.UserID] = owner
+				identities[mlock.IdentityID] = owner
 			}
 
 			locks = append(locks, &LFSLock{lock: mlock, owner: owner, backend: l})
@@ -370,7 +370,7 @@ func (l *lfsLockBackend) Unlock(lock transfer.Lock) error {
 	}
 
 	err = l.store.Transaction(l.ctx, func(tx domain.Store) error {
-		return tx.DeleteLFSLockForUserByID(l.ctx, l.repo.ID, l.user.ID, id)
+		return tx.DeleteLFSLockForIdentityByID(l.ctx, l.repo.ID, l.identity.ID, id)
 	})
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
@@ -387,7 +387,7 @@ func (l *lfsLockBackend) Unlock(lock transfer.Lock) error {
 // It implements transfer.Lock.
 type LFSLock struct {
 	lock    *domain.LFSLock
-	owner   *domain.User
+	owner   *domain.Identity
 	backend *lfsLockBackend
 }
 
@@ -415,7 +415,7 @@ func (l *LFSLock) AsLockSpec(ownerID bool) ([]string, error) {
 
 	if ownerID {
 		who := "theirs"
-		if l.lock.UserID == l.owner.ID {
+		if l.lock.IdentityID == l.owner.ID {
 			who = "ours"
 		}
 
