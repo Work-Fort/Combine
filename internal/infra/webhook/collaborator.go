@@ -29,7 +29,7 @@ const (
 )
 
 // NewCollaboratorEvent sends a collaborator event.
-func NewCollaboratorEvent(ctx context.Context, user *domain.User, repo *domain.Repo, collabUsername string, action CollaboratorEventAction) (CollaboratorEvent, error) {
+func NewCollaboratorEvent(ctx context.Context, identity *domain.Identity, repo *domain.Repo, collabIdentityID string, action CollaboratorEventAction) (CollaboratorEvent, error) {
 	event := EventCollaborator
 
 	payload := CollaboratorEvent{
@@ -48,34 +48,32 @@ func NewCollaboratorEvent(ctx context.Context, user *domain.User, repo *domain.R
 		},
 	}
 
-	if user != nil {
+	if identity != nil {
 		payload.Sender = User{
-			ID:       user.ID,
-			Username: user.Username,
+			Username: identity.Username,
 		}
 	}
 
-	// Find repo owner.
 	datastore := domain.StoreFromContext(ctx)
-	if repo.UserID != nil {
-		owner, err := datastore.GetUserByID(ctx, *repo.UserID)
+
+	// Find repo owner.
+	if repo.IdentityID != nil {
+		owner, err := datastore.GetIdentityByID(ctx, *repo.IdentityID)
 		if err != nil {
 			return CollaboratorEvent{}, err
 		}
-		payload.Repository.Owner.ID = owner.ID
 		payload.Repository.Owner.Username = owner.Username
 	}
 
 	payload.Repository.DefaultBranch, _ = getDefaultBranch(ctx, repo)
 
-	collab, err := datastore.GetCollabByUsernameAndRepo(ctx, collabUsername, repo.Name)
+	collab, err := datastore.GetCollabByIdentityAndRepo(ctx, collabIdentityID, repo.Name)
 	if err != nil {
 		return CollaboratorEvent{}, err
 	}
 
 	payload.AccessLevel = collab.AccessLevel
-	payload.Collaborator.ID = collab.UserID
-	payload.Collaborator.Username = collabUsername
+	payload.Collaborator.Username = collabIdentityID
 
 	return payload, nil
 }

@@ -26,7 +26,7 @@ type PushEvent struct {
 }
 
 // NewPushEvent sends a push event.
-func NewPushEvent(ctx context.Context, user *domain.User, repo *domain.Repo, ref, before, after string) (PushEvent, error) {
+func NewPushEvent(ctx context.Context, identity *domain.Identity, repo *domain.Repo, ref, before, after string) (PushEvent, error) {
 	event := EventPush
 
 	payload := PushEvent{
@@ -47,10 +47,9 @@ func NewPushEvent(ctx context.Context, user *domain.User, repo *domain.Repo, ref
 		},
 	}
 
-	if user != nil {
+	if identity != nil {
 		payload.Sender = User{
-			ID:       user.ID,
-			Username: user.Username,
+			Username: identity.Username,
 		}
 	}
 
@@ -59,13 +58,12 @@ func NewPushEvent(ctx context.Context, user *domain.User, repo *domain.Repo, ref
 	payload.Repository.SSHURL = repoURL(cfg.SSH.PublicURL, repo.Name)
 
 	// Find repo owner.
-	if repo.UserID != nil {
+	if repo.IdentityID != nil {
 		datastore := domain.StoreFromContext(ctx)
-		owner, err := datastore.GetUserByID(ctx, *repo.UserID)
+		owner, err := datastore.GetIdentityByID(ctx, *repo.IdentityID)
 		if err != nil {
 			return PushEvent{}, err
 		}
-		payload.Repository.Owner.ID = owner.ID
 		payload.Repository.Owner.Username = owner.Username
 	}
 

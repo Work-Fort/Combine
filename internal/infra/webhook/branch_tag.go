@@ -26,7 +26,7 @@ type BranchTagEvent struct {
 }
 
 // NewBranchTagEvent sends a branch or tag event.
-func NewBranchTagEvent(ctx context.Context, user *domain.User, repo *domain.Repo, ref, before, after string) (BranchTagEvent, error) {
+func NewBranchTagEvent(ctx context.Context, identity *domain.Identity, repo *domain.Repo, ref, before, after string) (BranchTagEvent, error) {
 	var event Event
 	if git.IsZeroHash(before) {
 		event = EventBranchTagCreate
@@ -56,10 +56,9 @@ func NewBranchTagEvent(ctx context.Context, user *domain.User, repo *domain.Repo
 		},
 	}
 
-	if user != nil {
+	if identity != nil {
 		payload.Sender = User{
-			ID:       user.ID,
-			Username: user.Username,
+			Username: identity.Username,
 		}
 	}
 
@@ -68,13 +67,12 @@ func NewBranchTagEvent(ctx context.Context, user *domain.User, repo *domain.Repo
 	payload.Repository.SSHURL = repoURL(cfg.SSH.PublicURL, repo.Name)
 
 	// Find repo owner.
-	if repo.UserID != nil {
+	if repo.IdentityID != nil {
 		datastore := domain.StoreFromContext(ctx)
-		owner, err := datastore.GetUserByID(ctx, *repo.UserID)
+		owner, err := datastore.GetIdentityByID(ctx, *repo.IdentityID)
 		if err != nil {
 			return BranchTagEvent{}, err
 		}
-		payload.Repository.Owner.ID = owner.ID
 		payload.Repository.Owner.Username = owner.Username
 	}
 

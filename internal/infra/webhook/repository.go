@@ -30,7 +30,7 @@ const (
 )
 
 // NewRepositoryEvent sends a repository event.
-func NewRepositoryEvent(ctx context.Context, user *domain.User, repo *domain.Repo, action RepositoryEventAction) (RepositoryEvent, error) {
+func NewRepositoryEvent(ctx context.Context, identity *domain.Identity, repo *domain.Repo, action RepositoryEventAction) (RepositoryEvent, error) {
 	var event Event
 	switch action {
 	case RepositoryEventActionVisibilityChange:
@@ -55,10 +55,9 @@ func NewRepositoryEvent(ctx context.Context, user *domain.User, repo *domain.Rep
 		},
 	}
 
-	if user != nil {
+	if identity != nil {
 		payload.Sender = User{
-			ID:       user.ID,
-			Username: user.Username,
+			Username: identity.Username,
 		}
 	}
 
@@ -67,13 +66,12 @@ func NewRepositoryEvent(ctx context.Context, user *domain.User, repo *domain.Rep
 	payload.Repository.SSHURL = repoURL(cfg.SSH.PublicURL, repo.Name)
 
 	// Find repo owner.
-	if repo.UserID != nil {
+	if repo.IdentityID != nil {
 		datastore := domain.StoreFromContext(ctx)
-		owner, err := datastore.GetUserByID(ctx, *repo.UserID)
+		owner, err := datastore.GetIdentityByID(ctx, *repo.IdentityID)
 		if err != nil {
 			return RepositoryEvent{}, err
 		}
-		payload.Repository.Owner.ID = owner.ID
 		payload.Repository.Owner.Username = owner.Username
 	}
 
