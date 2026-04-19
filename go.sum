@@ -6,8 +6,8 @@ charm.land/log/v2 v2.0.0-20251110204020-529bb77f35da h1:vZa/Ow0uLclpfaDY0ubjzE+B
 charm.land/log/v2 v2.0.0-20251110204020-529bb77f35da/go.mod h1:Tj12StbPc4GwksDF6XwhC9wdXouinIVxRGKKmmmzdSU=
 charm.land/wish/v2 v2.0.0-20251118130305-6cd7463a7b97 h1:71lxKLcPBqntp/99s+nD2/UHyd7GIzOOW9TFIzy1y9A=
 charm.land/wish/v2 v2.0.0-20251118130305-6cd7463a7b97/go.mod h1:FsbVEDgo+gQ86lu5Aqe8D1V6UtOF7U1J8iKQKycdbc0=
-github.com/Work-Fort/Passport/go/service-auth v0.0.2 h1:+09vzIDe8sV1++mQeyvUPv3HAIEXWYq5g+nCFbu1Kzw=
-github.com/Work-Fort/Passport/go/service-auth v0.0.2/go.mod h1:lAXlkS7iOeRswc6ruJ+1wA7gpuBYHGQ0AElteNBIYyo=
+github.com/Work-Fort/Passport/go/service-auth v0.1.0 h1:XvsHoCCr8fUvktbMlkPZAlYZosxfVbAycMZndBkmdS4=
+github.com/Work-Fort/Passport/go/service-auth v0.1.0/go.mod h1:lAXlkS7iOeRswc6ruJ+1wA7gpuBYHGQ0AElteNBIYyo=
 github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be h1:9AeTilPcZAjCFIImctFaOjnTIavg87rW78vTPkQqLI8=
 github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be/go.mod h1:ySMOLuWl6zY27l47sB3qLNK6tF2fkHG55UZxx8oIVo4=
 github.com/aymanbagabas/git-module v1.8.4-0.20250826192401-1f81c5471e53 h1:KfKp+gVsQtuM9qb8Putvkx1jjAWqlvI1vdv5x9hdFoQ=

@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	charm.land/log/v2 v2.0.0-20251110204020-529bb77f35da
 	charm.land/wish/v2 v2.0.0-20251118130305-6cd7463a7b97
-	github.com/Work-Fort/Passport/go/service-auth v0.0.2
+	github.com/Work-Fort/Passport/go/service-auth v0.1.0
 	github.com/aymanbagabas/git-module v1.8.4-0.20250826192401-1f81c5471e53
 	github.com/charmbracelet/git-lfs-transfer v0.1.1-0.20240708204110-bacbfdb68d92
 	github.com/charmbracelet/keygen v0.5.4
