@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+#MISE description="Run all CI checks (lint + unit tests + e2e against default backend)"
+#MISE depends=["lint", "test", "e2e"]
+set -euo pipefail
