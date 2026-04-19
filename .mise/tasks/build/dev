@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+#MISE description="Build combine (dev, dynamic)"
+#MISE sources=["**/*.go", "**/*.sql", "go.mod", "go.sum"]
+#MISE outputs=["build/combine"]
+set -euo pipefail
+
+BUILD_DIR=build
+BINARY_NAME=combine
+GIT_SHORT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+VERSION="${VERSION:-dev-$GIT_SHORT_SHA}"
+
+mkdir -p "$BUILD_DIR"
+
+go build -ldflags "-X github.com/Work-Fort/Combine/cmd.Version=$VERSION" \
+  -o "$BUILD_DIR/$BINARY_NAME" ./cmd/combine
+echo "Built $BUILD_DIR/$BINARY_NAME"

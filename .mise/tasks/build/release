@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+#MISE description="Build combine (release, static, stripped)"
+set -euo pipefail
+
+BUILD_DIR=build
+BINARY_NAME=combine
+GIT_SHORT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+GIT_DATE=$(git log -1 --format=%cI 2>/dev/null || echo "unknown")
+VERSION="${VERSION:-dev-$GIT_SHORT_SHA}"
+
+mkdir -p "$BUILD_DIR"
+CGO_ENABLED=0 go build -trimpath \
+    -ldflags "-s -w \
+      -X github.com/Work-Fort/Combine/cmd.Version=$VERSION \
+      -X github.com/Work-Fort/Combine/cmd.CommitSHA=$GIT_SHORT_SHA \
+      -X github.com/Work-Fort/Combine/cmd.CommitDate=$GIT_DATE" \
+    -o "$BUILD_DIR/$BINARY_NAME" ./cmd/combine
+echo "Built $BUILD_DIR/$BINARY_NAME (release)"
