@@ -10,9 +10,6 @@ import (
 
 func TestDaemonStop_KillsProcessGroup(t *testing.T) {
 	binary := os.Getenv("COMBINE_BINARY")
-	if binary == "" {
-		t.Skip("COMBINE_BINARY not set; run via TestMain in tests/e2e/harness/main_test.go")
-	}
 
 	// Capture pid+pgid via a closure that StartDaemon's cleanup can
 	// fill, then register the ESRCH assertion BEFORE StartDaemon so

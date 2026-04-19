@@ -243,6 +243,13 @@ func TestSSHPushUnauthorized(t *testing.T) {
 
 func TestLFSPushPull(t *testing.T) {
 	d := harness.StartDaemon(t, combineBin)
+	t.Cleanup(func() {
+		if t.Failed() {
+			if b, err := os.ReadFile(d.StderrPath()); err == nil {
+				t.Logf("daemon stderr:\n%s", b)
+			}
+		}
+	})
 	client := d.APIClient(t, "testuser")
 
 	// Create repo via REST API
@@ -256,6 +263,14 @@ func TestLFSPushPull(t *testing.T) {
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git lfs install: %v\n%s", err, out)
+	}
+
+	// Combine does not implement the LFS locking API; disable lock
+	// verification so git-lfs does not abort the push trying to reach it.
+	cmd = exec.Command("git", "config", "lfs.locksverify", "false")
+	cmd.Dir = repoDir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git config lfs.locksverify: %v\n%s", err, out)
 	}
 
 	cmd = exec.Command("git", "lfs", "track", "*.bin")
@@ -284,6 +299,22 @@ func TestLFSPushPull(t *testing.T) {
 	// Clone into fresh dir
 	cloneDir := filepath.Join(t.TempDir(), "clone")
 	harness.GitCloneSSH(t, sshURL, d.PrivKeyPath, cloneDir)
+
+	// Install local LFS hooks and pull objects — required because git-lfs
+	// smudge only runs automatically when LFS is globally installed, which
+	// may not be the case in the test environment.
+	sshEnv := fmt.Sprintf("GIT_SSH_COMMAND=ssh -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null", d.PrivKeyPath)
+	for _, lfsArgs := range [][]string{
+		{"lfs", "install", "--local"},
+		{"lfs", "pull"},
+	} {
+		lfsCmd := exec.Command("git", lfsArgs...)
+		lfsCmd.Dir = cloneDir
+		lfsCmd.Env = append(os.Environ(), sshEnv)
+		if out, lfsErr := lfsCmd.CombinedOutput(); lfsErr != nil {
+			t.Fatalf("git %v: %v\n%s", lfsArgs, lfsErr, out)
+		}
+	}
 
 	clonedData, err := os.ReadFile(filepath.Join(cloneDir, "data.bin"))
 	if err != nil {

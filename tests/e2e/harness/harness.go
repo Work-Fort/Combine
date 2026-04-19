@@ -83,6 +83,14 @@ type Daemon struct {
 	jwksStop    func()
 }
 
+// StderrPath returns the path of the daemon's stderr temp file (for diagnostics).
+func (d *Daemon) StderrPath() string {
+	if d.stderrFile == nil {
+		return ""
+	}
+	return d.stderrFile.Name()
+}
+
 // StartDaemon starts a combine server and waits for it to become ready.
 func StartDaemon(t *testing.T, binary string) *Daemon {
 	t.Helper()
@@ -111,6 +119,7 @@ func StartDaemon(t *testing.T, binary string) *Daemon {
 		"COMBINE_INITIAL_ADMIN_KEYS="+strings.TrimSpace(string(pubKeyBytes)),
 		"COMBINE_SSH_LISTEN_ADDR="+sshAddr,
 		"COMBINE_HTTP_LISTEN_ADDR="+httpAddr,
+		"COMBINE_HTTP_PUBLIC_URL=http://"+httpAddr,
 		"COMBINE_STATS_ENABLED=false",
 		"COMBINE_TESTRUN=true",
 		"COMBINE_PASSPORT_URL=http://"+jwksAddr,
