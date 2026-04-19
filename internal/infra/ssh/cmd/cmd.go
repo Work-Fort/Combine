@@ -118,8 +118,8 @@ func checkIfReadable(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
 	be := backend.FromContext(ctx)
 	rn := utils.SanitizeRepo(repo)
-	user := domain.UserFromContext(ctx)
-	auth := be.AccessLevelForUser(cmd.Context(), rn, user)
+	identity := domain.IdentityFromContext(ctx)
+	auth := be.AccessLevelForIdentity(cmd.Context(), rn, identity)
 	if auth < domain.ReadOnlyAccess {
 		return domain.ErrRepoNotFound
 	}
@@ -152,16 +152,16 @@ func checkIfAdmin(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	user := domain.UserFromContext(ctx)
-	if user == nil {
+	identity := domain.IdentityFromContext(ctx)
+	if identity == nil {
 		return domain.ErrUnauthorized
 	}
 
-	if user.Admin {
+	if identity.IsAdmin {
 		return nil
 	}
 
-	auth := be.AccessLevelForUser(cmd.Context(), rn, user)
+	auth := be.AccessLevelForIdentity(cmd.Context(), rn, identity)
 	if auth >= domain.AdminAccess {
 		return nil
 	}
@@ -178,8 +178,8 @@ func checkIfCollab(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
 	be := backend.FromContext(ctx)
 	rn := utils.SanitizeRepo(repo)
-	user := domain.UserFromContext(ctx)
-	auth := be.AccessLevelForUser(cmd.Context(), rn, user)
+	identity := domain.IdentityFromContext(ctx)
+	auth := be.AccessLevelForIdentity(cmd.Context(), rn, identity)
 	if auth < domain.ReadWriteAccess {
 		return domain.ErrUnauthorized
 	}

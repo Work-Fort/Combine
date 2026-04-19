@@ -175,14 +175,14 @@ func gitRunE(cmd *cobra.Command, args []string) error {
 	name := utils.SanitizeRepo(args[0])
 	pk := sshutils.PublicKeyFromContext(ctx)
 	ak := sshutils.MarshalAuthorizedKey(pk)
-	user := domain.UserFromContext(ctx)
+	identity := domain.IdentityFromContext(ctx)
 	// Check access level: use public key check first (handles admin keys
-	// for users not in the database), fall back to user-based check.
+	// not yet in the database), fall back to identity-based check.
 	var accessLevel domain.AccessLevel
 	if pk != nil {
 		accessLevel = be.AccessLevelByPublicKey(ctx, name, pk)
 	} else {
-		accessLevel = be.AccessLevelForUser(ctx, name, user)
+		accessLevel = be.AccessLevelForIdentity(ctx, name, identity)
 	}
 	// git bare repositories should end in ".git"
 	repoDir := name + ".git"
@@ -203,9 +203,9 @@ func gitRunE(cmd *cobra.Command, args []string) error {
 		"COMBINE_LOG_PATH=" + filepath.Join(cfg.DataPath, "log", "hooks.log"),
 	}
 
-	if user != nil {
+	if identity != nil {
 		envs = append(envs,
-			"COMBINE_USERNAME="+user.Username,
+			"COMBINE_USERNAME="+identity.Username,
 		)
 	}
 
@@ -244,7 +244,7 @@ func gitRunE(cmd *cobra.Command, args []string) error {
 			return git.ErrNotAuthed
 		}
 		if repo == nil {
-			if _, err := be.CreateRepository(ctx, name, user, domain.RepoOptions{Private: false}); err != nil {
+			if _, err := be.CreateRepository(ctx, name, identity, domain.RepoOptions{Private: false}); err != nil {
 				log.Errorf("failed to create repo: %s", err)
 				return err
 			}

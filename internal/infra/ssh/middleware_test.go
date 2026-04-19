@@ -54,38 +54,29 @@ func TestAuthenticationBypass(t *testing.T) {
 	attackerPubKey, _, _, _, err := gossh.ParseAuthorizedKey([]byte(attackerPair.AuthorizedKey()))
 	is.NoErr(err)
 
-	// Create admin user
-	adminUser, err := be.CreateUser(ctx, "testadmin", domain.UserOptions{
-		Admin:      true,
-		PublicKeys: []gossh.PublicKey{adminPubKey},
-	})
+	// Create identities
+	adminIdentity, err := store.UpsertIdentity(ctx, "uuid-admin", "testadmin", "Test Admin", "user")
 	is.NoErr(err)
-	is.True(adminUser != nil)
+	is.NoErr(store.SetIdentityAdmin(ctx, adminIdentity.ID, true))
+	is.NoErr(store.AddIdentityPublicKey(ctx, adminIdentity.ID, adminPubKey))
 
-	// Create attacker (non-admin) user
-	attackerUser, err := be.CreateUser(ctx, "testattacker", domain.UserOptions{
-		Admin:      false,
-		PublicKeys: []gossh.PublicKey{attackerPubKey},
-	})
+	attackerIdentity, err := store.UpsertIdentity(ctx, "uuid-attacker", "testattacker", "Test Attacker", "user")
 	is.NoErr(err)
-	is.True(attackerUser != nil)
-	is.True(!attackerUser.Admin) // Verify attacker is NOT admin
+	is.NoErr(store.AddIdentityPublicKey(ctx, attackerIdentity.ID, attackerPubKey))
 
-	// Test: Verify that looking up user by key gives correct user
-	t.Run("user_lookup_by_key", func(t *testing.T) {
+	// Test: Verify that looking up identity by key gives correct identity
+	t.Run("identity_lookup_by_key", func(t *testing.T) {
 		is := is.New(t)
 
-		// Looking up admin key should return admin user
-		user, err := be.UserByPublicKey(ctx, adminPubKey)
+		// Looking up admin key should return admin identity
+		identity, err := be.IdentityByPublicKey(ctx, adminPubKey)
 		is.NoErr(err)
-		is.Equal(user.Username, "testadmin")
-		is.True(user.Admin)
+		is.Equal(identity.Username, "testadmin")
 
-		// Looking up attacker key should return attacker user
-		user, err = be.UserByPublicKey(ctx, attackerPubKey)
+		// Looking up attacker key should return attacker identity
+		identity, err = be.IdentityByPublicKey(ctx, attackerPubKey)
 		is.NoErr(err)
-		is.Equal(user.Username, "testattacker")
-		is.True(!user.Admin)
+		is.Equal(identity.Username, "testattacker")
 	})
 
 	// Test: Simulate the authentication bypass vulnerability
@@ -99,23 +90,23 @@ func TestAuthenticationBypass(t *testing.T) {
 			permissions: &ssh.Permissions{Permissions: &gossh.Permissions{Extensions: make(map[string]string)}},
 		}
 
-		// ATTACK SIMULATION:
-		mockCtx.SetValue(domain.UserContextKey(), adminUser)
+		// ATTACK SIMULATION: pre-set admin identity but present attacker key
+		mockCtx.SetValue(domain.IdentityContextKey(), adminIdentity)
 		mockCtx.permissions.Extensions["pubkey-fp"] = gossh.FingerprintSHA256(adminPubKey)
 
 		mockCtx.permissions.Extensions["pubkey-fp"] = gossh.FingerprintSHA256(attackerPubKey)
 
-		authenticatedUser, err := be.UserByPublicKey(mockCtx, attackerPubKey)
+		authenticatedIdentity, err := be.IdentityByPublicKey(mockCtx, attackerPubKey)
 		is.NoErr(err)
 
-		// EXPECTED: User should be "attacker", NOT "admin"
-		is.Equal(authenticatedUser.Username, "testattacker")
-		is.True(!authenticatedUser.Admin)
+		// EXPECTED: Identity should be "attacker", NOT "admin"
+		is.Equal(authenticatedIdentity.Username, "testattacker")
+		is.True(!authenticatedIdentity.IsAdmin)
 
-		contextUser := domain.UserFromContext(mockCtx)
-		if contextUser != nil && contextUser.Username == "testadmin" {
-			t.Logf("WARNING: Context still contains admin user! This indicates the vulnerability exists.")
-			t.Logf("The authenticated key is attacker's, but context has admin user.")
+		contextIdentity := domain.IdentityFromContext(mockCtx)
+		if contextIdentity != nil && contextIdentity.Username == "testadmin" {
+			t.Logf("WARNING: Context still contains admin identity! This indicates the vulnerability exists.")
+			t.Logf("The authenticated key is attacker's, but context has admin identity.")
 		}
 	})
 }

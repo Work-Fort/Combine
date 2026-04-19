@@ -54,12 +54,12 @@ func AuthenticationMiddleware(sh ssh.Handler) ssh.Handler {
 			return
 		}
 
-		// Set the auth'd user, or anon, in the context
-		var user *domain.User
+		// Set the auth'd identity, or anon, in the context
+		var identity *domain.Identity
 		if pk != nil {
-			user, _ = be.UserByPublicKey(ctx, pk)
+			identity, _ = be.IdentityByPublicKey(ctx, pk)
 		}
-		ctx.SetValue(domain.UserContextKey(), user)
+		ctx.SetValue(domain.IdentityContextKey(), identity)
 
 		sh(s)
 	}
@@ -153,7 +153,7 @@ func LoggingMiddleware(sh ssh.Handler) ssh.Handler {
 		hpk := sshutils.MarshalAuthorizedKey(s.PublicKey())
 		ptyReq, _, isPty := s.Pty()
 		addr := s.RemoteAddr().String()
-		user := domain.UserFromContext(ctx)
+		identity := domain.IdentityFromContext(ctx)
 		logArgs := []interface{}{
 			"addr",
 			addr,
@@ -161,10 +161,10 @@ func LoggingMiddleware(sh ssh.Handler) ssh.Handler {
 			s.Command(),
 		}
 
-		if user != nil {
+		if identity != nil {
 			logArgs = append([]interface{}{
 				"username",
-				user.Username,
+				identity.Username,
 			}, logArgs...)
 		}
 
