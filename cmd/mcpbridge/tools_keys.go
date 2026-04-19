@@ -14,7 +14,7 @@ func registerKeyTools(s *server.MCPServer, client *apiClient) {
 			mcp.WithDescription("List SSH keys for the authenticated user"),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			body, status, err := client.do("GET", "/api/v1/user/keys", nil)
+			body, status, err := client.do(ctx, "GET", "/api/v1/user/keys", nil)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -37,7 +37,7 @@ func registerKeyTools(s *server.MCPServer, client *apiClient) {
 			if v := request.GetString("name", ""); v != "" {
 				payload["name"] = v
 			}
-			body, status, err := client.do("POST", "/api/v1/user/keys", payload)
+			body, status, err := client.do(ctx, "POST", "/api/v1/user/keys", payload)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -55,7 +55,7 @@ func registerKeyTools(s *server.MCPServer, client *apiClient) {
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
-			body, status, err := client.do("DELETE", fmt.Sprintf("/api/v1/user/keys/%d", id), nil)
+			body, status, err := client.do(ctx, "DELETE", fmt.Sprintf("/api/v1/user/keys/%d", id), nil)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}

@@ -19,7 +19,7 @@ func registerIssueTools(s *server.MCPServer, client *apiClient) {
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
-			body, status, err := client.do("GET", fmt.Sprintf("/api/v1/repos/%s/issues", repo), nil)
+			body, status, err := client.do(ctx, "GET", fmt.Sprintf("/api/v1/repos/%s/issues", repo), nil)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -47,7 +47,7 @@ func registerIssueTools(s *server.MCPServer, client *apiClient) {
 			if v := request.GetString("body", ""); v != "" {
 				payload["body"] = v
 			}
-			body, status, err := client.do("POST", fmt.Sprintf("/api/v1/repos/%s/issues", repo), payload)
+			body, status, err := client.do(ctx, "POST", fmt.Sprintf("/api/v1/repos/%s/issues", repo), payload)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -70,7 +70,7 @@ func registerIssueTools(s *server.MCPServer, client *apiClient) {
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
-			body, status, err := client.do("GET", fmt.Sprintf("/api/v1/repos/%s/issues/%d", repo, number), nil)
+			body, status, err := client.do(ctx, "GET", fmt.Sprintf("/api/v1/repos/%s/issues/%d", repo, number), nil)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -106,7 +106,7 @@ func registerIssueTools(s *server.MCPServer, client *apiClient) {
 			if v := request.GetString("status", ""); v != "" {
 				payload["status"] = v
 			}
-			body, status, err := client.do("PATCH", fmt.Sprintf("/api/v1/repos/%s/issues/%d", repo, number), payload)
+			body, status, err := client.do(ctx, "PATCH", fmt.Sprintf("/api/v1/repos/%s/issues/%d", repo, number), payload)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -129,7 +129,7 @@ func registerIssueTools(s *server.MCPServer, client *apiClient) {
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
-			body, status, err := client.do("GET", fmt.Sprintf("/api/v1/repos/%s/issues/%d/comments", repo, number), nil)
+			body, status, err := client.do(ctx, "GET", fmt.Sprintf("/api/v1/repos/%s/issues/%d/comments", repo, number), nil)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -158,7 +158,7 @@ func registerIssueTools(s *server.MCPServer, client *apiClient) {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 			payload := map[string]any{"body": commentBody}
-			body, status, err := client.do("POST", fmt.Sprintf("/api/v1/repos/%s/issues/%d/comments", repo, number), payload)
+			body, status, err := client.do(ctx, "POST", fmt.Sprintf("/api/v1/repos/%s/issues/%d/comments", repo, number), payload)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}

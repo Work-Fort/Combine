@@ -2,6 +2,7 @@ package mcpbridge
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -25,7 +26,7 @@ func newAPIClient(baseURL, token string) *apiClient {
 	}
 }
 
-func (c *apiClient) do(method, path string, body interface{}) ([]byte, int, error) {
+func (c *apiClient) do(ctx context.Context, method, path string, body interface{}) ([]byte, int, error) {
 	var bodyReader io.Reader
 	if body != nil {
 		data, err := json.Marshal(body)
@@ -35,7 +36,7 @@ func (c *apiClient) do(method, path string, body interface{}) ([]byte, int, erro
 		bodyReader = bytes.NewReader(data)
 	}
 
-	req, err := http.NewRequest(method, c.baseURL+path, bodyReader)
+	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, bodyReader)
 	if err != nil {
 		return nil, 0, fmt.Errorf("create request: %w", err)
 	}

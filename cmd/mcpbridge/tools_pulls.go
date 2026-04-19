@@ -19,7 +19,7 @@ func registerPullRequestTools(s *server.MCPServer, client *apiClient) {
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
-			body, status, err := client.do("GET", fmt.Sprintf("/api/v1/repos/%s/pulls", repo), nil)
+			body, status, err := client.do(ctx, "GET", fmt.Sprintf("/api/v1/repos/%s/pulls", repo), nil)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -54,14 +54,14 @@ func registerPullRequestTools(s *server.MCPServer, client *apiClient) {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 			payload := map[string]any{
-				"title":  title,
-				"head":   head,
-				"base":   base,
+				"title": title,
+				"head":  head,
+				"base":  base,
 			}
 			if v := request.GetString("body", ""); v != "" {
 				payload["body"] = v
 			}
-			body, status, err := client.do("POST", fmt.Sprintf("/api/v1/repos/%s/pulls", repo), payload)
+			body, status, err := client.do(ctx, "POST", fmt.Sprintf("/api/v1/repos/%s/pulls", repo), payload)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -84,7 +84,7 @@ func registerPullRequestTools(s *server.MCPServer, client *apiClient) {
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
-			body, status, err := client.do("GET", fmt.Sprintf("/api/v1/repos/%s/pulls/%d", repo, number), nil)
+			body, status, err := client.do(ctx, "GET", fmt.Sprintf("/api/v1/repos/%s/pulls/%d", repo, number), nil)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -120,7 +120,7 @@ func registerPullRequestTools(s *server.MCPServer, client *apiClient) {
 			if v := request.GetString("status", ""); v != "" {
 				payload["status"] = v
 			}
-			body, status, err := client.do("PATCH", fmt.Sprintf("/api/v1/repos/%s/pulls/%d", repo, number), payload)
+			body, status, err := client.do(ctx, "PATCH", fmt.Sprintf("/api/v1/repos/%s/pulls/%d", repo, number), payload)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -148,7 +148,7 @@ func registerPullRequestTools(s *server.MCPServer, client *apiClient) {
 			if v := request.GetString("strategy", ""); v != "" {
 				payload["strategy"] = v
 			}
-			body, status, err := client.do("POST", fmt.Sprintf("/api/v1/repos/%s/pulls/%d/merge", repo, number), payload)
+			body, status, err := client.do(ctx, "POST", fmt.Sprintf("/api/v1/repos/%s/pulls/%d/merge", repo, number), payload)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -171,7 +171,7 @@ func registerPullRequestTools(s *server.MCPServer, client *apiClient) {
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
-			body, status, err := client.do("GET", fmt.Sprintf("/api/v1/repos/%s/pulls/%d/diff", repo, number), nil)
+			body, status, err := client.do(ctx, "GET", fmt.Sprintf("/api/v1/repos/%s/pulls/%d/diff", repo, number), nil)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -194,7 +194,7 @@ func registerPullRequestTools(s *server.MCPServer, client *apiClient) {
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
-			body, status, err := client.do("GET", fmt.Sprintf("/api/v1/repos/%s/pulls/%d/files", repo, number), nil)
+			body, status, err := client.do(ctx, "GET", fmt.Sprintf("/api/v1/repos/%s/pulls/%d/files", repo, number), nil)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -233,7 +233,7 @@ func registerPullRequestTools(s *server.MCPServer, client *apiClient) {
 					payload["comments"] = v
 				}
 			}
-			body, status, err := client.do("POST", fmt.Sprintf("/api/v1/repos/%s/pulls/%d/reviews", repo, number), payload)
+			body, status, err := client.do(ctx, "POST", fmt.Sprintf("/api/v1/repos/%s/pulls/%d/reviews", repo, number), payload)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}

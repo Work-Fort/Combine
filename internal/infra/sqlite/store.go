@@ -6,8 +6,9 @@ import (
 	"embed"
 	"fmt"
 
-	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/pressly/goose/v3"
+
+	"github.com/Work-Fort/Combine/internal/domain"
 
 	// SQLite driver.
 	_ "modernc.org/sqlite"
@@ -52,7 +53,7 @@ func Open(dsn string) (*Store, error) {
 		"PRAGMA foreign_keys = ON",
 		"PRAGMA journal_mode = WAL",
 	} {
-		if _, err := db.Exec(pragma); err != nil {
+		if _, err := db.ExecContext(context.Background(), pragma); err != nil {
 			db.Close()
 			return nil, fmt.Errorf("sqlite pragma %q: %w", pragma, err)
 		}

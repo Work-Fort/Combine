@@ -1,11 +1,12 @@
 package git
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
 
-	"github.com/aymanbagabas/git-module"
+	git "github.com/aymanbagabas/git-module"
 )
 
 // MergeBase returns the merge-base commit hash between two refs.
@@ -87,8 +88,8 @@ func (r *Repository) ChangedFilesBetween(base, head string) ([]ChangedFile, erro
 
 // IsMergeable checks if head can be cleanly merged into base using git merge-tree.
 // Requires Git >= 2.38.
-func (r *Repository) IsMergeable(base, head string) (bool, error) {
-	cmd := exec.Command("git", "merge-tree", "--write-tree", base, head)
+func (r *Repository) IsMergeable(ctx context.Context, base, head string) (bool, error) {
+	cmd := exec.CommandContext(ctx, "git", "merge-tree", "--write-tree", base, head)
 	cmd.Dir = r.Path
 	cmd.Env = append(cmd.Environ(), "GIT_CONFIG_GLOBAL=/dev/null")
 	err := cmd.Run()
@@ -110,8 +111,8 @@ type MergeResult struct {
 }
 
 // MergeBranches performs a merge commit of head into base on a bare repo.
-func (r *Repository) MergeBranches(base, head, message string) (*MergeResult, error) {
-	mtCmd := exec.Command("git", "merge-tree", "--write-tree", base, head)
+func (r *Repository) MergeBranches(ctx context.Context, base, head, message string) (*MergeResult, error) {
+	mtCmd := exec.CommandContext(ctx, "git", "merge-tree", "--write-tree", base, head)
 	mtCmd.Dir = r.Path
 	out, err := mtCmd.CombinedOutput()
 	if err != nil {
@@ -128,7 +129,7 @@ func (r *Repository) MergeBranches(base, head, message string) (*MergeResult, er
 		return nil, fmt.Errorf("resolve head: %w", err)
 	}
 
-	cmd := exec.Command("git", "commit-tree", treeHash,
+	cmd := exec.CommandContext(ctx, "git", "commit-tree", treeHash,
 		"-p", baseHash, "-p", headHash, "-m", message)
 	cmd.Dir = r.Path
 	cmd.Env = append(cmd.Environ(),
@@ -144,7 +145,7 @@ func (r *Repository) MergeBranches(base, head, message string) (*MergeResult, er
 	}
 	mergeCommit := strings.TrimSpace(string(commitOut))
 
-	cmd = exec.Command("git", "update-ref", "refs/heads/"+base, mergeCommit)
+	cmd = exec.CommandContext(ctx, "git", "update-ref", "refs/heads/"+base, mergeCommit)
 	cmd.Dir = r.Path
 	if err := cmd.Run(); err != nil {
 		return nil, fmt.Errorf("update-ref: %w", err)
@@ -157,8 +158,8 @@ func (r *Repository) MergeBranches(base, head, message string) (*MergeResult, er
 }
 
 // SquashBranches squashes head into base on a bare repo.
-func (r *Repository) SquashBranches(base, head, message string) (*MergeResult, error) {
-	mtCmd := exec.Command("git", "merge-tree", "--write-tree", base, head)
+func (r *Repository) SquashBranches(ctx context.Context, base, head, message string) (*MergeResult, error) {
+	mtCmd := exec.CommandContext(ctx, "git", "merge-tree", "--write-tree", base, head)
 	mtCmd.Dir = r.Path
 	out, err := mtCmd.CombinedOutput()
 	if err != nil {
@@ -171,7 +172,7 @@ func (r *Repository) SquashBranches(base, head, message string) (*MergeResult, e
 		return nil, fmt.Errorf("resolve base: %w", err)
 	}
 
-	cmd := exec.Command("git", "commit-tree", treeHash, "-p", baseHash, "-m", message)
+	cmd := exec.CommandContext(ctx, "git", "commit-tree", treeHash, "-p", baseHash, "-m", message)
 	cmd.Dir = r.Path
 	cmd.Env = append(cmd.Environ(),
 		"GIT_CONFIG_GLOBAL=/dev/null",
@@ -186,7 +187,7 @@ func (r *Repository) SquashBranches(base, head, message string) (*MergeResult, e
 	}
 	squashCommit := strings.TrimSpace(string(commitOut))
 
-	cmd = exec.Command("git", "update-ref", "refs/heads/"+base, squashCommit)
+	cmd = exec.CommandContext(ctx, "git", "update-ref", "refs/heads/"+base, squashCommit)
 	cmd.Dir = r.Path
 	if err := cmd.Run(); err != nil {
 		return nil, fmt.Errorf("update-ref: %w", err)
@@ -201,6 +202,6 @@ func (r *Repository) SquashBranches(base, head, message string) (*MergeResult, e
 // RebaseBranches replays head commits onto base on a bare repo.
 // V1: falls back to squash behavior. True rebase with individual commit
 // replay can be implemented later with git format-patch + git am.
-func (r *Repository) RebaseBranches(base, head string) (*MergeResult, error) {
-	return r.SquashBranches(base, head, "")
+func (r *Repository) RebaseBranches(ctx context.Context, base, head string) (*MergeResult, error) {
+	return r.SquashBranches(ctx, base, head, "")
 }

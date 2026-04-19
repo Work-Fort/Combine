@@ -22,7 +22,7 @@ func registerRepoTools(s *server.MCPServer, client *apiClient) {
 			mcp.WithDescription("List all repositories"),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			body, status, err := client.do("GET", "/api/v1/repos", nil)
+			body, status, err := client.do(ctx, "GET", "/api/v1/repos", nil)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -55,7 +55,7 @@ func registerRepoTools(s *server.MCPServer, client *apiClient) {
 			if v := request.GetString("project_name", ""); v != "" {
 				payload["project_name"] = v
 			}
-			body, status, err := client.do("POST", "/api/v1/repos", payload)
+			body, status, err := client.do(ctx, "POST", "/api/v1/repos", payload)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -73,7 +73,7 @@ func registerRepoTools(s *server.MCPServer, client *apiClient) {
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
-			body, status, err := client.do("GET", fmt.Sprintf("/api/v1/repos/%s", repo), nil)
+			body, status, err := client.do(ctx, "GET", fmt.Sprintf("/api/v1/repos/%s", repo), nil)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -106,7 +106,7 @@ func registerRepoTools(s *server.MCPServer, client *apiClient) {
 			if v := request.GetString("project_name", ""); v != "" {
 				payload["project_name"] = v
 			}
-			body, status, err := client.do("PATCH", fmt.Sprintf("/api/v1/repos/%s", repo), payload)
+			body, status, err := client.do(ctx, "PATCH", fmt.Sprintf("/api/v1/repos/%s", repo), payload)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -124,7 +124,7 @@ func registerRepoTools(s *server.MCPServer, client *apiClient) {
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
-			body, status, err := client.do("DELETE", fmt.Sprintf("/api/v1/repos/%s", repo), nil)
+			body, status, err := client.do(ctx, "DELETE", fmt.Sprintf("/api/v1/repos/%s", repo), nil)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}

@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 
+	gitmodule "github.com/aymanbagabas/git-module"
+
 	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/Work-Fort/Combine/internal/infra/git"
-	gitmodule "github.com/aymanbagabas/git-module"
 )
 
 // IsPullRequestMergeable checks if a PR can be cleanly merged.
@@ -15,7 +16,7 @@ func (b *Backend) IsPullRequestMergeable(ctx context.Context, repoName, source, 
 	if err != nil {
 		return false, fmt.Errorf("open repo: %w", err)
 	}
-	return r.IsMergeable(target, source)
+	return r.IsMergeable(ctx, target, source)
 }
 
 // MergePullRequest performs the git merge for a PR using the specified strategy.
@@ -27,11 +28,11 @@ func (b *Backend) MergePullRequest(ctx context.Context, repoName, source, target
 
 	switch method {
 	case domain.MergeMethodMerge:
-		return r.MergeBranches(target, source, message)
+		return r.MergeBranches(ctx, target, source, message)
 	case domain.MergeMethodSquash:
-		return r.SquashBranches(target, source, message)
+		return r.SquashBranches(ctx, target, source, message)
 	case domain.MergeMethodRebase:
-		return r.RebaseBranches(target, source)
+		return r.RebaseBranches(ctx, target, source)
 	default:
 		return nil, fmt.Errorf("unsupported merge method: %s", method)
 	}

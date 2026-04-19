@@ -37,19 +37,21 @@ func listReviewsByPRID(ctx context.Context, q querier, prID int64) ([]*domain.Pu
 		return nil, err
 	}
 
+	defer rows.Close()
+
 	var reviews []*domain.PullRequestReview
 	for rows.Next() {
 		var r domain.PullRequestReview
 		if err := rows.Scan(&r.ID, &r.PRID, &r.AuthorID, &r.State, &r.Body, &r.CreatedAt); err != nil {
-			rows.Close()
 			return nil, err
 		}
 		reviews = append(reviews, &r)
 	}
 	if err := rows.Err(); err != nil {
-		rows.Close()
 		return nil, err
 	}
+	// Explicitly close before fetching comments so the connection is
+	// released; required for MaxOpenConns=1 (SQLite single-connection pool).
 	rows.Close()
 
 	// Fetch comments in a separate loop to avoid holding the rows cursor

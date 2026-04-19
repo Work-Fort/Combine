@@ -19,7 +19,7 @@ func registerWebhookTools(s *server.MCPServer, client *apiClient) {
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
-			body, status, err := client.do("GET", fmt.Sprintf("/api/v1/repos/%s/webhooks", repo), nil)
+			body, status, err := client.do(ctx, "GET", fmt.Sprintf("/api/v1/repos/%s/webhooks", repo), nil)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -57,7 +57,7 @@ func registerWebhookTools(s *server.MCPServer, client *apiClient) {
 			if v := request.GetString("content_type", ""); v != "" {
 				payload["content_type"] = v
 			}
-			body, status, err := client.do("POST", fmt.Sprintf("/api/v1/repos/%s/webhooks", repo), payload)
+			body, status, err := client.do(ctx, "POST", fmt.Sprintf("/api/v1/repos/%s/webhooks", repo), payload)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -80,7 +80,7 @@ func registerWebhookTools(s *server.MCPServer, client *apiClient) {
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
-			body, status, err := client.do("DELETE", fmt.Sprintf("/api/v1/repos/%s/webhooks/%d", repo, id), nil)
+			body, status, err := client.do(ctx, "DELETE", fmt.Sprintf("/api/v1/repos/%s/webhooks/%d", repo, id), nil)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
