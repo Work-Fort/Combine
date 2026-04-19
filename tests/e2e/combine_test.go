@@ -242,11 +242,6 @@ func TestSSHPushUnauthorized(t *testing.T) {
 }
 
 func TestLFSPushPull(t *testing.T) {
-	// Check if git-lfs is installed
-	if _, err := exec.LookPath("git-lfs"); err != nil {
-		t.Skip("git-lfs not installed")
-	}
-
 	d := harness.StartDaemon(t, combineBin)
 	client := d.APIClient(t, "testuser")
 
