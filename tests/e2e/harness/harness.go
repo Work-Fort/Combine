@@ -76,7 +76,7 @@ type Daemon struct {
 	PrivKeyPath string
 	SignJWT     func(id, username, displayName, userType string) string
 	cmd         *exec.Cmd
-	stderr      *bytes.Buffer
+	stderrFile  *os.File // *os.File (not bytes.Buffer) — see hardening notes
 	jwksStop    func()
 }
 
@@ -114,10 +114,23 @@ func StartDaemon(t *testing.T, binary string) *Daemon {
 		"COMBINE_HTTP_CORS_ALLOWED_METHODS=GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS",
 	)
 
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
+	stderrFile, err := os.CreateTemp("", "combine-e2e-stderr-*")
+	if err != nil {
+		t.Fatalf("create stderr temp file: %v", err)
+	}
+	// *os.File (not bytes.Buffer) so exec.Cmd does not create a copy
+	// goroutine; Setpgid puts the daemon and any descendants in a
+	// fresh process group; WaitDelay force-closes any inherited fds
+	// after the daemon exits. See the orphan-process hardening
+	// section of go-service-architecture.
+	cmd.Stdout = stderrFile
+	cmd.Stderr = stderrFile
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.WaitDelay = 10 * time.Second
 
 	if err := cmd.Start(); err != nil {
+		stderrFile.Close()
+		os.Remove(stderrFile.Name())
 		t.Fatalf("start daemon: %v", err)
 	}
 
@@ -128,48 +141,69 @@ func StartDaemon(t *testing.T, binary string) *Daemon {
 		PrivKeyPath: privKeyPath,
 		SignJWT:     signJWT,
 		cmd:         cmd,
-		stderr:      &stderr,
+		stderrFile:  stderrFile,
 		jwksStop:    jwksStop,
 	}
 
 	// Poll for readiness
 	readyURL := fmt.Sprintf("http://%s/v1/health", httpAddr)
 	deadline := time.Now().Add(15 * time.Second)
+	ready := false
 	for time.Now().Before(deadline) {
 		resp, err := http.Get(readyURL)
 		if err == nil {
 			resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
-				goto ready
+				ready = true
+				break
 			}
 		}
 		time.Sleep(200 * time.Millisecond)
 	}
-	// Not ready - kill and fail
-	cmd.Process.Kill()
-	cmd.Wait()
-	t.Fatalf("daemon not ready after 15s, stderr:\n%s", stderr.String())
+	if !ready {
+		pgid := cmd.Process.Pid
+		_ = syscall.Kill(-pgid, syscall.SIGKILL)
+		cmd.Wait()
+		stderrBytes, _ := os.ReadFile(stderrFile.Name())
+		stderrFile.Close()
+		os.Remove(stderrFile.Name())
+		t.Fatalf("daemon not ready after 15s, stderr:\n%s", stderrBytes)
+	}
 
-ready:
-	t.Cleanup(func() {
-		cmd.Process.Signal(syscall.SIGTERM)
+	t.Cleanup(func() { stopDaemon(t, d) })
+
+	return d
+}
+
+// stopDaemon signals the daemon's process group with SIGTERM, waits
+// up to 10s, then SIGKILLs the group. Reads the stderr temp file,
+// reports DATA RACE if present, and removes the temp file.
+func stopDaemon(t *testing.T, d *Daemon) {
+	t.Helper()
+	if d.cmd.Process != nil {
+		pgid := d.cmd.Process.Pid
+		_ = syscall.Kill(-pgid, syscall.SIGTERM)
 		done := make(chan error, 1)
-		go func() { done <- cmd.Wait() }()
+		go func() { done <- d.cmd.Wait() }()
 		select {
 		case <-done:
 		case <-time.After(10 * time.Second):
-			cmd.Process.Kill()
+			_ = syscall.Kill(-pgid, syscall.SIGKILL)
 			<-done
 		}
-		if d.jwksStop != nil {
-			d.jwksStop()
-		}
-		if strings.Contains(stderr.String(), "DATA RACE") {
-			t.Errorf("data race detected in daemon stderr:\n%s", stderr.String())
-		}
-	})
-
-	return d
+	}
+	if d.jwksStop != nil {
+		d.jwksStop()
+	}
+	var stderrBytes []byte
+	if d.stderrFile != nil {
+		stderrBytes, _ = os.ReadFile(d.stderrFile.Name())
+		d.stderrFile.Close()
+		os.Remove(d.stderrFile.Name())
+	}
+	if bytes.Contains(stderrBytes, []byte("DATA RACE")) {
+		t.Errorf("data race detected in daemon stderr:\n%s", stderrBytes)
+	}
 }
 
 // GitInit initializes a git repository in dir.
