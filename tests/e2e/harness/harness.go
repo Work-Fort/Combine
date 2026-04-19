@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
+	"database/sql"
 	"encoding/pem"
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -127,6 +130,24 @@ func StartDaemon(t *testing.T, binary string) *Daemon {
 	cmd.Stderr = stderrFile
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.WaitDelay = 10 * time.Second
+
+	// Backend selection: forward COMBINE_DB_* if set; reset Postgres schema
+	// per test so each daemon starts from a clean state.
+	// The daemon dispatches on DSN prefix alone; COMBINE_DB_DRIVER is a
+	// test-side gate that selects the reset path. Both env vars still flow
+	// to the daemon via os.Environ() inheritance, which is harmless.
+	if dsn := os.Getenv("COMBINE_DB_DATA_SOURCE"); dsn != "" {
+		driver := os.Getenv("COMBINE_DB_DRIVER")
+		if driver == "postgres" {
+			if err := resetPostgres(dsn); err != nil {
+				stderrFile.Close()
+				os.Remove(stderrFile.Name())
+				t.Fatalf("reset postgres: %v", err)
+			}
+		}
+		// COMBINE_DB_DATA_SOURCE and COMBINE_DB_DRIVER already inherited
+		// via os.Environ(); no need to re-append.
+	}
 
 	if err := cmd.Start(); err != nil {
 		stderrFile.Close()
@@ -352,4 +373,78 @@ func runGitExpectFail(t *testing.T, dir string, extraEnv []string, args ...strin
 	if err == nil {
 		t.Fatalf("expected git %v to fail, but it succeeded:\n%s", args, out)
 	}
+}
+
+// resetPostgres drops and recreates the public schema so each test
+// starts from a clean database. Goose migrations re-run on daemon startup.
+func resetPostgres(dsn string) error {
+	db, err := sql.Open("pgx", dsn)
+	if err != nil {
+		return fmt.Errorf("open: %w", err)
+	}
+	defer db.Close()
+	if _, err := db.Exec("DROP SCHEMA IF EXISTS public CASCADE"); err != nil {
+		return fmt.Errorf("drop schema: %w", err)
+	}
+	if _, err := db.Exec("CREATE SCHEMA public"); err != nil {
+		return fmt.Errorf("create schema: %w", err)
+	}
+	if _, err := db.Exec("GRANT ALL ON SCHEMA public TO PUBLIC"); err != nil {
+		return fmt.Errorf("grant schema: %w", err)
+	}
+	return nil
+}
+
+// AltDB returns a second DB DSN for use by a second daemon in the same test.
+// Under SQLite (COMBINE_DB_DATA_SOURCE not set or driver != postgres) it
+// returns a fresh tempfile path inside t.TempDir() — the file does not yet
+// exist, so the daemon will seed it on first open. Under Postgres it
+// constructs a sibling database DSN by appending "_b" to the database name,
+// resets its schema, and registers a t.Cleanup that resets it again.
+func AltDB(t *testing.T) string {
+	t.Helper()
+	if os.Getenv("COMBINE_DB_DRIVER") != "postgres" {
+		return filepath.Join(t.TempDir(), "alt.db")
+	}
+	envDSN := os.Getenv("COMBINE_DB_DATA_SOURCE")
+	if envDSN == "" {
+		t.Fatalf("AltDB: COMBINE_DB_DRIVER=postgres but COMBINE_DB_DATA_SOURCE is empty")
+	}
+
+	u, err := url.Parse(envDSN)
+	if err != nil {
+		t.Fatalf("AltDB: parse COMBINE_DB_DATA_SOURCE %q: %v", envDSN, err)
+	}
+	origDB := strings.TrimPrefix(u.Path, "/")
+	siblingDB := origDB + "_b"
+	u.Path = "/" + siblingDB
+	siblingDSN := u.String()
+
+	adminDB, err := sql.Open("pgx", envDSN)
+	if err != nil {
+		t.Fatalf("AltDB: open admin connection: %v", err)
+	}
+	defer adminDB.Close()
+
+	var exists bool
+	if err := adminDB.QueryRow(
+		"SELECT EXISTS(SELECT 1 FROM pg_database WHERE datname = $1)", siblingDB,
+	).Scan(&exists); err != nil {
+		t.Fatalf("AltDB: check sibling db existence: %v", err)
+	}
+	if !exists {
+		if _, err := adminDB.Exec("CREATE DATABASE " + siblingDB); err != nil {
+			t.Fatalf("AltDB: create sibling db %q: %v", siblingDB, err)
+		}
+	}
+
+	if err := resetPostgres(siblingDSN); err != nil {
+		t.Fatalf("AltDB: reset sibling postgres %q: %v", siblingDSN, err)
+	}
+	t.Cleanup(func() {
+		if err := resetPostgres(siblingDSN); err != nil {
+			t.Logf("AltDB cleanup: reset sibling postgres: %v", err)
+		}
+	})
+	return siblingDSN
 }
