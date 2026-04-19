@@ -16,20 +16,20 @@ import (
 // identities in Combine's store on each authenticated request.
 type PassportAuth struct {
 	mw    auth.Middleware
-	store domain.Store
+	store domain.IdentityStore
 	jwtV  *jwt.Validator
 }
 
 // NewPassportAuth creates a PassportAuth that validates tokens against the
 // Passport service at passportURL and upserts identities into store.
-func NewPassportAuth(ctx context.Context, passportURL string, store domain.Store) (*PassportAuth, error) {
+func NewPassportAuth(ctx context.Context, passportURL string, store domain.IdentityStore) (*PassportAuth, error) {
 	opts := auth.DefaultOptions(passportURL)
 	jwtV, err := jwt.New(ctx, opts.JWKSURL, opts.JWKSRefreshInterval)
 	if err != nil {
 		return nil, fmt.Errorf("init JWT validator: %w", err)
 	}
 	akV := apikey.New(opts.VerifyAPIKeyURL, opts.APIKeyCacheTTL)
-	mw := auth.NewFromValidators(jwtV, akV)
+	mw := auth.NewSchemeDispatch(jwtV, akV)
 
 	return &PassportAuth{mw: mw, store: store, jwtV: jwtV}, nil
 }
