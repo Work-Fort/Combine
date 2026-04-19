@@ -5,9 +5,10 @@ import (
 	"database/sql"
 	"fmt"
 
+	"golang.org/x/crypto/ssh"
+
 	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/Work-Fort/Combine/internal/infra/sshutils"
-	"golang.org/x/crypto/ssh"
 )
 
 func scanIdentity(row interface{ Scan(dest ...any) error }) (*domain.Identity, error) {

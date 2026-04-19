@@ -16,8 +16,8 @@ func LatestFile(d *Backend, r *domain.Repo, ref *git.Reference, pattern string) 
 }
 
 // Readme returns the repository's README.
-func Readme(d *Backend, r *domain.Repo, ref *git.Reference) (readme string, path string, err error) {
+func Readme(d *Backend, r *domain.Repo, ref *git.Reference) (readme, path string, err error) {
 	pattern := "[rR][eE][aA][dD][mM][eE]*"
 	readme, path, err = LatestFile(d, r, ref, pattern)
-	return
+	return readme, path, err
 }

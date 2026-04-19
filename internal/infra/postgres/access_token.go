@@ -97,7 +97,7 @@ func deleteAccessToken(ctx context.Context, q querier, id int64) error {
 	return err
 }
 
-func deleteAccessTokenForUser(ctx context.Context, q querier, userID int64, id int64) error {
+func deleteAccessTokenForUser(ctx context.Context, q querier, userID, id int64) error {
 	_, err := q.ExecContext(ctx, `DELETE FROM access_tokens WHERE user_id = $1 AND id = $2`, userID, id)
 	return err
 }
@@ -124,7 +124,7 @@ func (s *Store) DeleteAccessToken(ctx context.Context, id int64) error {
 	return deleteAccessToken(ctx, s.q(), id)
 }
 
-func (s *Store) DeleteAccessTokenForUser(ctx context.Context, userID int64, id int64) error {
+func (s *Store) DeleteAccessTokenForUser(ctx context.Context, userID, id int64) error {
 	return deleteAccessTokenForUser(ctx, s.q(), userID, id)
 }
 
@@ -150,6 +150,6 @@ func (ts *txStore) DeleteAccessToken(ctx context.Context, id int64) error {
 	return deleteAccessToken(ctx, ts.q(), id)
 }
 
-func (ts *txStore) DeleteAccessTokenForUser(ctx context.Context, userID int64, id int64) error {
+func (ts *txStore) DeleteAccessTokenForUser(ctx context.Context, userID, id int64) error {
 	return deleteAccessTokenForUser(ctx, ts.q(), userID, id)
 }

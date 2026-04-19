@@ -6,8 +6,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/Work-Fort/Combine/internal/domain"
 	"golang.org/x/crypto/ssh"
+
+	"github.com/Work-Fort/Combine/internal/domain"
 )
 
 func mustOpen(t *testing.T) *Store {

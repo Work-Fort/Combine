@@ -8,6 +8,7 @@ import (
 	"text/template"
 
 	"charm.land/log/v2"
+
 	"github.com/Work-Fort/Combine/internal/config"
 	"github.com/Work-Fort/Combine/internal/infra/utils"
 )
@@ -34,7 +35,7 @@ func GenerateHooks(_ context.Context, cfg *config.Config, repo string) error {
 
 // GenerateHooksWithPaths generates git server-side hooks using explicit paths
 // instead of a config object.
-func GenerateHooksWithPaths(_ context.Context, dataPath string, repo string) error {
+func GenerateHooksWithPaths(_ context.Context, dataPath, repo string) error {
 	repo = utils.SanitizeRepo(repo) + ".git"
 	hooksPath := filepath.Join(dataPath, "repos", repo, "hooks")
 	if err := os.MkdirAll(hooksPath, os.ModePerm); err != nil {

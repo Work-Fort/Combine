@@ -133,7 +133,7 @@ func (s *Store) CreatePullRequest(ctx context.Context, pr *domain.PullRequest) e
 	return createPullRequest(ctx, s.q(), pr)
 }
 
-func (s *Store) GetPullRequestByNumber(ctx context.Context, repoID int64, number int64) (*domain.PullRequest, error) {
+func (s *Store) GetPullRequestByNumber(ctx context.Context, repoID, number int64) (*domain.PullRequest, error) {
 	return getPullRequestByNumber(ctx, s.q(), repoID, number)
 }
 
@@ -151,7 +151,7 @@ func (ts *txStore) CreatePullRequest(ctx context.Context, pr *domain.PullRequest
 	return createPullRequest(ctx, ts.q(), pr)
 }
 
-func (ts *txStore) GetPullRequestByNumber(ctx context.Context, repoID int64, number int64) (*domain.PullRequest, error) {
+func (ts *txStore) GetPullRequestByNumber(ctx context.Context, repoID, number int64) (*domain.PullRequest, error) {
 	return getPullRequestByNumber(ctx, ts.q(), repoID, number)
 }
 

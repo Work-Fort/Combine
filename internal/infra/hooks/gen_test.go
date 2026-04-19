@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Work-Fort/Combine/internal/infra/git"
 	"github.com/Work-Fort/Combine/internal/config"
+	"github.com/Work-Fort/Combine/internal/infra/git"
 )
 
 func TestGenerateHooks(t *testing.T) {

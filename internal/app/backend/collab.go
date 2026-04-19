@@ -11,7 +11,7 @@ import (
 )
 
 // AddCollaborator adds a collaborator to a repository.
-func (d *Backend) AddCollaborator(ctx context.Context, repo string, username string, level domain.AccessLevel) error {
+func (d *Backend) AddCollaborator(ctx context.Context, repo, username string, level domain.AccessLevel) error {
 	username = strings.ToLower(username)
 	if err := utils.ValidateUsername(username); err != nil {
 		return err
@@ -55,7 +55,7 @@ func (d *Backend) Collaborators(ctx context.Context, repo string) ([]string, err
 }
 
 // IsCollaborator returns the access level and true if the user is a collaborator of the repository.
-func (d *Backend) IsCollaborator(ctx context.Context, repo string, username string) (domain.AccessLevel, bool, error) {
+func (d *Backend) IsCollaborator(ctx context.Context, repo, username string) (domain.AccessLevel, bool, error) {
 	if username == "" {
 		return -1, false, nil
 	}
@@ -73,7 +73,7 @@ func (d *Backend) IsCollaborator(ctx context.Context, repo string, username stri
 }
 
 // RemoveCollaborator removes a collaborator from a repository.
-func (d *Backend) RemoveCollaborator(ctx context.Context, repo string, username string) error {
+func (d *Backend) RemoveCollaborator(ctx context.Context, repo, username string) error {
 	repo = utils.SanitizeRepo(repo)
 	r, err := d.Repository(ctx, repo)
 	if err != nil {

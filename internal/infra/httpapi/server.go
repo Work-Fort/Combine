@@ -5,9 +5,10 @@ import (
 	"net/http"
 
 	"charm.land/log/v2"
-	"github.com/Work-Fort/Combine/internal/config"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
+
+	"github.com/Work-Fort/Combine/internal/config"
 )
 
 // NewRouter returns a new HTTP router.

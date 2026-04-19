@@ -185,11 +185,11 @@ type LFSLock struct {
 
 // Identity represents a Passport-authenticated identity stored locally.
 type Identity struct {
-	ID          string    // Passport UUID, primary key
-	Username    string    // From Passport claims
-	DisplayName string    // From Passport claims
-	Type        string    // "user", "agent", "service"
-	IsAdmin     bool      // Local admin flag
+	ID          string // Passport UUID, primary key
+	Username    string // From Passport claims
+	DisplayName string // From Passport claims
+	Type        string // "user", "agent", "service"
+	IsAdmin     bool   // Local admin flag
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
@@ -221,16 +221,16 @@ const (
 
 // Issue is a repository issue.
 type Issue struct {
-	ID         int64           // Global autoincrement PK (internal)
-	Number     int64           // Per-repo issue number (user-facing)
-	RepoID     int64           // FK to repos.id
-	AuthorID   string          // FK to identities.id
+	ID         int64  // Global autoincrement PK (internal)
+	Number     int64  // Per-repo issue number (user-facing)
+	RepoID     int64  // FK to repos.id
+	AuthorID   string // FK to identities.id
 	Title      string
 	Body       string
 	Status     IssueStatus
 	Resolution IssueResolution
-	AssigneeID *string         // FK to identities.id, nullable
-	Labels     []string        // Denormalized from issue_labels table
+	AssigneeID *string  // FK to identities.id, nullable
+	Labels     []string // Denormalized from issue_labels table
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 	ClosedAt   *time.Time
@@ -266,10 +266,10 @@ const (
 
 // PullRequest is a repository pull request.
 type PullRequest struct {
-	ID           int64             // Global autoincrement PK (internal)
-	Number       int64             // Per-repo number (shared with issues)
-	RepoID       int64             // FK to repos.id
-	AuthorID     string            // FK to identities.id
+	ID           int64  // Global autoincrement PK (internal)
+	Number       int64  // Per-repo number (shared with issues)
+	RepoID       int64  // FK to repos.id
+	AuthorID     string // FK to identities.id
 	Title        string
 	Body         string
 	SourceBranch string
@@ -302,9 +302,9 @@ const (
 
 // PullRequestReview is a review on a pull request.
 type PullRequestReview struct {
-	ID        int64       // Global PK
-	PRID      int64       // FK to pull_requests.id
-	AuthorID  string      // FK to identities.id
+	ID        int64  // Global PK
+	PRID      int64  // FK to pull_requests.id
+	AuthorID  string // FK to identities.id
 	State     ReviewState
 	Body      string
 	Comments  []*ReviewComment // Populated on read

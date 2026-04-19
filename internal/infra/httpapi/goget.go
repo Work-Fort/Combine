@@ -7,12 +7,13 @@ import (
 	"text/template"
 
 	"charm.land/log/v2"
-	"github.com/Work-Fort/Combine/internal/app/backend"
-	"github.com/Work-Fort/Combine/internal/config"
-	"github.com/Work-Fort/Combine/internal/infra/utils"
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+
+	"github.com/Work-Fort/Combine/internal/app/backend"
+	"github.com/Work-Fort/Combine/internal/config"
+	"github.com/Work-Fort/Combine/internal/infra/utils"
 )
 
 var goGetCounter = promauto.NewCounterVec(prometheus.CounterOpts{

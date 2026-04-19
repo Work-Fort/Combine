@@ -5,9 +5,10 @@ import (
 	"crypto/sha256"
 	"fmt"
 
-	"github.com/Work-Fort/Combine/internal/config"
 	"github.com/go-jose/go-jose/v3"
 	"github.com/golang-jwt/jwt/v5"
+
+	"github.com/Work-Fort/Combine/internal/config"
 )
 
 // SigningMethod is a JSON Web Token signing method. It uses Ed25519 keys to

@@ -14,12 +14,13 @@ import (
 	"strings"
 
 	"charm.land/log/v2"
+	"github.com/gorilla/mux"
+
 	"github.com/Work-Fort/Combine/internal/app/backend"
-	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/Work-Fort/Combine/internal/config"
+	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/Work-Fort/Combine/internal/infra/lfs"
 	"github.com/Work-Fort/Combine/internal/infra/storage"
-	"github.com/gorilla/mux"
 )
 
 // serviceLfsBatch handles a Git LFS batch requests.
@@ -533,7 +534,7 @@ func serviceLfsLocksGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	parseLocksQuery := func(values url.Values) (path string, id int64, cursor int, limit int, refspec string) {
+	parseLocksQuery := func(values url.Values) (path string, id int64, cursor, limit int, refspec string) {
 		path = values.Get("path")
 		idStr := values.Get("id")
 		if idStr != "" {
@@ -548,7 +549,7 @@ func serviceLfsLocksGet(w http.ResponseWriter, r *http.Request) {
 			limit, _ = strconv.Atoi(limitStr)
 		}
 		refspec = values.Get("refspec")
-		return
+		return path, id, cursor, limit, refspec
 	}
 
 	ctx := r.Context()

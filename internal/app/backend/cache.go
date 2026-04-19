@@ -1,8 +1,9 @@
 package backend
 
 import (
-	"github.com/Work-Fort/Combine/internal/domain"
 	lru "github.com/hashicorp/golang-lru/v2"
+
+	"github.com/Work-Fort/Combine/internal/domain"
 )
 
 // TODO: implement a caching interface.

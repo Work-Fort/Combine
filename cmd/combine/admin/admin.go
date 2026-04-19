@@ -3,10 +3,11 @@ package admin
 import (
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/Work-Fort/Combine/cmd"
 	"github.com/Work-Fort/Combine/internal/app/backend"
 	"github.com/Work-Fort/Combine/internal/config"
-	"github.com/spf13/cobra"
 )
 
 var (

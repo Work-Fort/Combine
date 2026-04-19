@@ -5,9 +5,10 @@ import (
 	"net/http"
 
 	"charm.land/log/v2"
+
 	"github.com/Work-Fort/Combine/internal/app/backend"
-	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/Work-Fort/Combine/internal/config"
+	"github.com/Work-Fort/Combine/internal/domain"
 )
 
 // NewContextHandler returns a new context middleware.

@@ -14,8 +14,8 @@ type HookArg struct {
 
 // Hooks provides an interface for git server-side hooks.
 type Hooks interface {
-	PreReceive(ctx context.Context, stdout io.Writer, stderr io.Writer, repo string, args []HookArg)
-	Update(ctx context.Context, stdout io.Writer, stderr io.Writer, repo string, arg HookArg)
-	PostReceive(ctx context.Context, stdout io.Writer, stderr io.Writer, repo string, args []HookArg)
-	PostUpdate(ctx context.Context, stdout io.Writer, stderr io.Writer, repo string, args ...string)
+	PreReceive(ctx context.Context, stdout, stderr io.Writer, repo string, args []HookArg)
+	Update(ctx context.Context, stdout, stderr io.Writer, repo string, arg HookArg)
+	PostReceive(ctx context.Context, stdout, stderr io.Writer, repo string, args []HookArg)
+	PostUpdate(ctx context.Context, stdout, stderr io.Writer, repo string, args ...string)
 }

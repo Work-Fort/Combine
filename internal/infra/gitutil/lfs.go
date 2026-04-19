@@ -13,8 +13,9 @@ import (
 
 	"charm.land/log/v2"
 	"github.com/charmbracelet/git-lfs-transfer/transfer"
-	"github.com/Work-Fort/Combine/internal/domain"
+
 	"github.com/Work-Fort/Combine/internal/config"
+	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/Work-Fort/Combine/internal/infra/lfs"
 	"github.com/Work-Fort/Combine/internal/infra/storage"
 )
@@ -207,7 +208,7 @@ func (t *lfsTransfer) LockBackend(args transfer.Args) transfer.LockBackend {
 }
 
 // Create implements transfer.LockBackend.
-func (l *lfsLockBackend) Create(path string, refname string) (transfer.Lock, error) {
+func (l *lfsLockBackend) Create(path, refname string) (transfer.Lock, error) {
 	var lock LFSLock
 
 	if err := l.store.Transaction(l.ctx, func(tx domain.Store) error {

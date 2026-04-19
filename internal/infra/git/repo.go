@@ -178,7 +178,7 @@ func (r *Repository) CommitsByPage(ref *Reference, page, size int) (Commits, err
 
 // SymbolicRef returns or updates the symbolic reference for the given name.
 // Both name and ref can be empty.
-func (r *Repository) SymbolicRef(name string, ref string, opts ...git.SymbolicRefOptions) (string, error) {
+func (r *Repository) SymbolicRef(name, ref string, opts ...git.SymbolicRefOptions) (string, error) {
 	var opt git.SymbolicRefOptions
 	if len(opts) > 0 {
 		opt = opts[0]

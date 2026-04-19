@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 
 	"charm.land/log/v2"
+	"github.com/google/uuid"
+
 	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/Work-Fort/Combine/internal/infra/webhook"
-	"github.com/google/uuid"
 )
 
 // CreateWebhook creates a webhook for a repository.

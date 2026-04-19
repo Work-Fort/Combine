@@ -8,9 +8,10 @@ import (
 	"strings"
 
 	"charm.land/log/v2"
-	"github.com/Work-Fort/Combine/internal/infra/git"
+
 	"github.com/Work-Fort/Combine/internal/app/backend"
 	"github.com/Work-Fort/Combine/internal/config"
+	"github.com/Work-Fort/Combine/internal/infra/git"
 	"github.com/Work-Fort/Combine/internal/infra/lfs"
 	"github.com/Work-Fort/Combine/internal/infra/sync"
 )

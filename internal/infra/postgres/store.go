@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/pressly/goose/v3"
+
+	"github.com/Work-Fort/Combine/internal/domain"
 
 	// PostgreSQL driver.
 	_ "github.com/jackc/pgx/v5/stdlib"

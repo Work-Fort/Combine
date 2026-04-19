@@ -287,7 +287,7 @@ func (d *Backend) DeleteUserRepositories(ctx context.Context, username string) e
 }
 
 // RenameRepository renames a repository.
-func (d *Backend) RenameRepository(ctx context.Context, oldName string, newName string) error {
+func (d *Backend) RenameRepository(ctx context.Context, oldName, newName string) error {
 	oldName = utils.SanitizeRepo(oldName)
 	if err := utils.ValidateRepo(oldName); err != nil {
 		return err
@@ -468,7 +468,7 @@ func (d *Backend) SetHidden(ctx context.Context, name string, hidden bool) error
 }
 
 // SetDescription sets the description of a repository.
-func (d *Backend) SetDescription(ctx context.Context, name string, desc string) error {
+func (d *Backend) SetDescription(ctx context.Context, name, desc string) error {
 	name = utils.SanitizeRepo(name)
 	desc = utils.Sanitize(desc)
 	rp := d.repoPath(name)
@@ -526,7 +526,7 @@ func (d *Backend) SetPrivate(ctx context.Context, name string, private bool) err
 }
 
 // SetProjectName sets the project name of a repository.
-func (d *Backend) SetProjectName(ctx context.Context, repoName string, name string) error {
+func (d *Backend) SetProjectName(ctx context.Context, repoName, name string) error {
 	repoName = utils.SanitizeRepo(repoName)
 	name = utils.Sanitize(name)
 	d.cache.Delete(repoName)

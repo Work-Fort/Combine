@@ -4,17 +4,18 @@ import (
 	"context"
 
 	"charm.land/log/v2"
+	"golang.org/x/crypto/ssh"
+
 	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/Work-Fort/Combine/internal/infra/task"
-	"golang.org/x/crypto/ssh"
 )
 
 // BackendConfig holds the configuration for the backend.
 type BackendConfig struct {
-	RepoDir            string
-	DataDir            string
-	AdminKeys          []ssh.PublicKey
-	SSHClientKeyPath   string
+	RepoDir           string
+	DataDir           string
+	AdminKeys         []ssh.PublicKey
+	SSHClientKeyPath  string
 	SSHKnownHostsPath string
 }
 

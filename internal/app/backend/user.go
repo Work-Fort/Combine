@@ -6,14 +6,15 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/crypto/ssh"
+
 	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/Work-Fort/Combine/internal/infra/sshutils"
 	"github.com/Work-Fort/Combine/internal/infra/utils"
-	"golang.org/x/crypto/ssh"
 )
 
 // AccessLevel returns the access level of a user for a repository.
-func (d *Backend) AccessLevel(ctx context.Context, repo string, username string) domain.AccessLevel {
+func (d *Backend) AccessLevel(ctx context.Context, repo, username string) domain.AccessLevel {
 	user, _ := d.User(ctx, username)
 	return d.AccessLevelForUser(ctx, repo, user)
 }
@@ -243,7 +244,7 @@ func (d *Backend) ListPublicKeys(ctx context.Context, username string) ([]ssh.Pu
 }
 
 // SetUsername sets the username of a user.
-func (d *Backend) SetUsername(ctx context.Context, username string, newUsername string) error {
+func (d *Backend) SetUsername(ctx context.Context, username, newUsername string) error {
 	username = strings.ToLower(username)
 	if err := utils.ValidateUsername(username); err != nil {
 		return err
@@ -277,7 +278,7 @@ func (d *Backend) SetAdmin(ctx context.Context, username string, admin bool) err
 }
 
 // SetPassword sets the password of a user.
-func (d *Backend) SetPassword(ctx context.Context, username string, rawPassword string) error {
+func (d *Backend) SetPassword(ctx context.Context, username, rawPassword string) error {
 	username = strings.ToLower(username)
 	if err := utils.ValidateUsername(username); err != nil {
 		return err

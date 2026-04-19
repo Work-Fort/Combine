@@ -8,11 +8,12 @@ import (
 	"time"
 
 	"charm.land/log/v2"
-	"github.com/Work-Fort/Combine/internal/domain"
+	"github.com/golang-jwt/jwt/v5"
+
 	"github.com/Work-Fort/Combine/internal/config"
+	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/Work-Fort/Combine/internal/infra/jwk"
 	"github.com/Work-Fort/Combine/internal/infra/lfs"
-	"github.com/golang-jwt/jwt/v5"
 )
 
 // LFSAuthenticate implements the Git LFS SSH authentication command.

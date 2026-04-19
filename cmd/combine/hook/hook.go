@@ -13,11 +13,12 @@ import (
 	"strings"
 
 	"charm.land/log/v2"
+	"github.com/spf13/cobra"
+
 	"github.com/Work-Fort/Combine/cmd"
 	"github.com/Work-Fort/Combine/internal/app/backend"
 	"github.com/Work-Fort/Combine/internal/config"
 	"github.com/Work-Fort/Combine/internal/infra/hooks"
-	"github.com/spf13/cobra"
 )
 
 var (
@@ -165,7 +166,7 @@ func init() {
 	)
 }
 
-func runCommand(ctx context.Context, in io.Reader, out io.Writer, err io.Writer, name string, args ...string) error {
+func runCommand(ctx context.Context, in io.Reader, out, err io.Writer, name string, args ...string) error {
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Stdin = in
 	cmd.Stdout = out

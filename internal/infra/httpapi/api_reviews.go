@@ -6,9 +6,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gorilla/mux"
+
 	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/Work-Fort/Combine/internal/infra/webhook"
-	"github.com/gorilla/mux"
 )
 
 type reviewCommentRequest struct {

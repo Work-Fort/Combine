@@ -24,7 +24,7 @@ func scanCollab(row interface{ Scan(dest ...any) error }) (*domain.Collab, error
 	return &c, nil
 }
 
-func getCollabByUsernameAndRepo(ctx context.Context, q querier, username string, repo string) (*domain.Collab, error) {
+func getCollabByUsernameAndRepo(ctx context.Context, q querier, username, repo string) (*domain.Collab, error) {
 	username = strings.ToLower(username)
 	row := q.QueryRowContext(ctx,
 		`SELECT collabs.id, collabs.user_id, collabs.repo_id, collabs.access_level, collabs.created_at, collabs.updated_at
@@ -40,7 +40,7 @@ func getCollabByUsernameAndRepo(ctx context.Context, q querier, username string,
 	return c, err
 }
 
-func addCollabByUsernameAndRepo(ctx context.Context, q querier, username string, repo string, level domain.AccessLevel) error {
+func addCollabByUsernameAndRepo(ctx context.Context, q querier, username, repo string, level domain.AccessLevel) error {
 	username = strings.ToLower(username)
 	_, err := q.ExecContext(ctx,
 		`INSERT INTO collabs (access_level, user_id, repo_id, updated_at)
@@ -60,7 +60,7 @@ func addCollabByUsernameAndRepo(ctx context.Context, q querier, username string,
 	return nil
 }
 
-func removeCollabByUsernameAndRepo(ctx context.Context, q querier, username string, repo string) error {
+func removeCollabByUsernameAndRepo(ctx context.Context, q querier, username, repo string) error {
 	username = strings.ToLower(username)
 	_, err := q.ExecContext(ctx,
 		`DELETE FROM collabs
@@ -108,15 +108,15 @@ func listCollabsByRepoAsUsers(ctx context.Context, q querier, repo string) ([]*d
 
 // Store methods.
 
-func (s *Store) GetCollabByUsernameAndRepo(ctx context.Context, username string, repo string) (*domain.Collab, error) {
+func (s *Store) GetCollabByUsernameAndRepo(ctx context.Context, username, repo string) (*domain.Collab, error) {
 	return getCollabByUsernameAndRepo(ctx, s.q(), username, repo)
 }
 
-func (s *Store) AddCollabByUsernameAndRepo(ctx context.Context, username string, repo string, level domain.AccessLevel) error {
+func (s *Store) AddCollabByUsernameAndRepo(ctx context.Context, username, repo string, level domain.AccessLevel) error {
 	return addCollabByUsernameAndRepo(ctx, s.q(), username, repo, level)
 }
 
-func (s *Store) RemoveCollabByUsernameAndRepo(ctx context.Context, username string, repo string) error {
+func (s *Store) RemoveCollabByUsernameAndRepo(ctx context.Context, username, repo string) error {
 	return removeCollabByUsernameAndRepo(ctx, s.q(), username, repo)
 }
 
@@ -130,15 +130,15 @@ func (s *Store) ListCollabsByRepoAsUsers(ctx context.Context, repo string) ([]*d
 
 // txStore methods.
 
-func (ts *txStore) GetCollabByUsernameAndRepo(ctx context.Context, username string, repo string) (*domain.Collab, error) {
+func (ts *txStore) GetCollabByUsernameAndRepo(ctx context.Context, username, repo string) (*domain.Collab, error) {
 	return getCollabByUsernameAndRepo(ctx, ts.q(), username, repo)
 }
 
-func (ts *txStore) AddCollabByUsernameAndRepo(ctx context.Context, username string, repo string, level domain.AccessLevel) error {
+func (ts *txStore) AddCollabByUsernameAndRepo(ctx context.Context, username, repo string, level domain.AccessLevel) error {
 	return addCollabByUsernameAndRepo(ctx, ts.q(), username, repo, level)
 }
 
-func (ts *txStore) RemoveCollabByUsernameAndRepo(ctx context.Context, username string, repo string) error {
+func (ts *txStore) RemoveCollabByUsernameAndRepo(ctx context.Context, username, repo string) error {
 	return removeCollabByUsernameAndRepo(ctx, ts.q(), username, repo)
 }
 

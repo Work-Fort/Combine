@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"strings"
 
+	"golang.org/x/crypto/ssh"
+
 	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/Work-Fort/Combine/internal/infra/sshutils"
-	"golang.org/x/crypto/ssh"
 )
 
 func scanUser(row interface{ Scan(dest ...any) error }) (*domain.User, error) {

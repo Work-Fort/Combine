@@ -116,3 +116,52 @@ Not part of the initial core feature set.
 
 - [ ] **No mise tasks** — `combine/lead` has neither `mise.toml` nor `.mise/tasks/`. Build goes through `go build` directly, which breaks the "use mise tasks" convention established for all other Go services in WorkFort. Add parity tasks (`build:release`, `build:dev`, `test`, `lint`, `docker:build`, `install:local`) matching the shape in hive/sharkfin/flow.
 - [ ] **No standard `/ui/health` manifest** — Combine returns `{service, routes, version}` from `/ui/health` where Pylon expects `{name, label, route, ws_paths, ...}`. Pylon marks it connected but with empty `name`/`label`, so it shows as an unnamed dot in Scope's top nav and `pylon.ServiceByName("combine")` returns nothing. Align the response shape with the manifest Pylon consumes.
+
+---
+
+## Test Coverage Gaps
+
+### Convention: every conditional `t.Skip` must be cross-referenced here
+
+Any conditional `t.Skip` in an e2e or integration test MUST have a corresponding
+entry in this section. The entry must name the test, state the condition under
+which it skips, and describe the work needed to remove the skip.
+
+A skip with no paper trail is indistinguishable from an accidental omission — and
+will be treated as one during future audits. The rationale for this rule is
+documented in the architecture reference:
+
+> See `skills/lead/go-service-architecture/references/architecture-reference.md`
+> §"Multi-Daemon Test Isolation (Per-Backend)" for the harness pattern and
+> the anti-pattern that created this gap.
+
+### Open: `TestLFSPushPull` skip (git-lfs not installed)
+
+**File:** `tests/e2e/combine_test.go`  
+**Condition:** `exec.LookPath("git-lfs")` returns an error (git-lfs binary absent from PATH).  
+**Skip reason:** The test exercises the full LFS push/pull flow and requires the
+`git-lfs` client to be installed in the test environment.  
+**Work to remove:** Add `git-lfs` to the CI runner image (or Dockerfile) and ensure
+it's available in the PATH when the e2e suite runs. This is an environment
+provisioning gap, not a code gap.
+
+### Open: `TestDaemonStop_KillsProcessGroup` skip (COMBINE_BINARY not set)
+
+**File:** `tests/e2e/harness/daemon_leak_test.go`  
+**Condition:** `os.Getenv("COMBINE_BINARY") == ""`.  
+**Skip reason:** The test verifies that `StartDaemon` kills the daemon's process
+group on cleanup. It requires a pre-built `combine` binary because it spawns the
+real process and inspects OS-level PGID behavior.  
+**Work to remove:** Ensure the e2e harness test runner sets `COMBINE_BINARY` before
+running this test package. The `tests/e2e/` `TestMain` sets it for the main
+suite; this test lives in the `harness/` sub-package and needs the same setup
+wired in (or moved into the main suite where `TestMain` already provides the
+binary path).
+
+### Note: `TestValidateWebhookURL` skip field (dead code)
+
+**File:** `internal/infra/webhook/validator_test.go`  
+**Condition:** `tt.skip != ""` — but no test case in the table sets `skip`.  
+**Status:** The `skip` field exists in the struct definition but is never populated,
+making it dead code. Either delete the field and the `if tt.skip != ""` guard, or
+document what test case should actually use it.

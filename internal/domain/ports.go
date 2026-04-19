@@ -39,9 +39,9 @@ type UserStore interface {
 
 // CollabStore is the port for collaborator persistence.
 type CollabStore interface {
-	GetCollabByUsernameAndRepo(ctx context.Context, username string, repo string) (*Collab, error)
-	AddCollabByUsernameAndRepo(ctx context.Context, username string, repo string, level AccessLevel) error
-	RemoveCollabByUsernameAndRepo(ctx context.Context, username string, repo string) error
+	GetCollabByUsernameAndRepo(ctx context.Context, username, repo string) (*Collab, error)
+	AddCollabByUsernameAndRepo(ctx context.Context, username, repo string, level AccessLevel) error
+	RemoveCollabByUsernameAndRepo(ctx context.Context, username, repo string) error
 	ListCollabsByRepo(ctx context.Context, repo string) ([]*Collab, error)
 	ListCollabsByRepoAsUsers(ctx context.Context, repo string) ([]*User, error)
 }
@@ -61,7 +61,7 @@ type AccessTokenStore interface {
 	ListAccessTokensByUserID(ctx context.Context, userID int64) ([]*AccessToken, error)
 	CreateAccessToken(ctx context.Context, name string, userID int64, token string, expiresAt time.Time) (*AccessToken, error)
 	DeleteAccessToken(ctx context.Context, id int64) error
-	DeleteAccessTokenForUser(ctx context.Context, userID int64, id int64) error
+	DeleteAccessTokenForUser(ctx context.Context, userID, id int64) error
 }
 
 // LFSStore is the port for Git LFS persistence.
@@ -72,27 +72,27 @@ type LFSStore interface {
 	ListLFSObjectsByName(ctx context.Context, name string) ([]*LFSObject, error)
 	DeleteLFSObjectByOid(ctx context.Context, repoID int64, oid string) error
 
-	CreateLFSLockForUser(ctx context.Context, repoID int64, userID int64, path string, refname string) error
-	ListLFSLocks(ctx context.Context, repoID int64, page int, limit int) ([]*LFSLock, error)
-	ListLFSLocksWithCount(ctx context.Context, repoID int64, page int, limit int) ([]*LFSLock, int64, error)
-	ListLFSLocksForUser(ctx context.Context, repoID int64, userID int64) ([]*LFSLock, error)
+	CreateLFSLockForUser(ctx context.Context, repoID, userID int64, path, refname string) error
+	ListLFSLocks(ctx context.Context, repoID int64, page, limit int) ([]*LFSLock, error)
+	ListLFSLocksWithCount(ctx context.Context, repoID int64, page, limit int) ([]*LFSLock, int64, error)
+	ListLFSLocksForUser(ctx context.Context, repoID, userID int64) ([]*LFSLock, error)
 	GetLFSLockForPath(ctx context.Context, repoID int64, path string) (*LFSLock, error)
-	GetLFSLockForUserPath(ctx context.Context, repoID int64, userID int64, path string) (*LFSLock, error)
+	GetLFSLockForUserPath(ctx context.Context, repoID, userID int64, path string) (*LFSLock, error)
 	GetLFSLockByID(ctx context.Context, id int64) (*LFSLock, error)
-	GetLFSLockForUserByID(ctx context.Context, repoID int64, userID int64, id int64) (*LFSLock, error)
-	DeleteLFSLock(ctx context.Context, repoID int64, id int64) error
-	DeleteLFSLockForUserByID(ctx context.Context, repoID int64, userID int64, id int64) error
+	GetLFSLockForUserByID(ctx context.Context, repoID, userID, id int64) (*LFSLock, error)
+	DeleteLFSLock(ctx context.Context, repoID, id int64) error
+	DeleteLFSLockForUserByID(ctx context.Context, repoID, userID, id int64) error
 }
 
 // WebhookStore is the port for webhook persistence.
 type WebhookStore interface {
-	GetWebhookByID(ctx context.Context, repoID int64, id int64) (*Webhook, error)
+	GetWebhookByID(ctx context.Context, repoID, id int64) (*Webhook, error)
 	ListWebhooksByRepoID(ctx context.Context, repoID int64) ([]*Webhook, error)
 	ListWebhooksByRepoIDWhereEvent(ctx context.Context, repoID int64, events []int) ([]*Webhook, error)
 	CreateWebhook(ctx context.Context, repoID int64, url string, contentType int, active bool) (int64, error)
-	UpdateWebhookByID(ctx context.Context, repoID int64, id int64, url string, contentType int, active bool) error
+	UpdateWebhookByID(ctx context.Context, repoID, id int64, url string, contentType int, active bool) error
 	DeleteWebhookByID(ctx context.Context, id int64) error
-	DeleteWebhookForRepoByID(ctx context.Context, repoID int64, id int64) error
+	DeleteWebhookForRepoByID(ctx context.Context, repoID, id int64) error
 
 	GetWebhookEventByID(ctx context.Context, id int64) (*WebhookEvent, error)
 	ListWebhookEventsByWebhookID(ctx context.Context, webhookID int64) ([]*WebhookEvent, error)
@@ -102,7 +102,7 @@ type WebhookStore interface {
 	GetWebhookDeliveryByID(ctx context.Context, webhookID int64, id uuid.UUID) (*WebhookDelivery, error)
 	GetWebhookDeliveriesByWebhookID(ctx context.Context, webhookID int64) ([]*WebhookDelivery, error)
 	ListWebhookDeliveriesByWebhookID(ctx context.Context, webhookID int64) ([]*WebhookDelivery, error)
-	CreateWebhookDelivery(ctx context.Context, id uuid.UUID, webhookID int64, event int, url string, method string, requestError error, requestHeaders string, requestBody string, responseStatus int, responseHeaders string, responseBody string) error
+	CreateWebhookDelivery(ctx context.Context, id uuid.UUID, webhookID int64, event int, url, method string, requestError error, requestHeaders, requestBody string, responseStatus int, responseHeaders, responseBody string) error
 	DeleteWebhookDeliveryByID(ctx context.Context, webhookID int64, id uuid.UUID) error
 }
 
@@ -122,7 +122,7 @@ type IdentityStore interface {
 // IssueStore is the port for issue persistence.
 type IssueStore interface {
 	CreateIssue(ctx context.Context, issue *Issue) error
-	GetIssueByNumber(ctx context.Context, repoID int64, number int64) (*Issue, error)
+	GetIssueByNumber(ctx context.Context, repoID, number int64) (*Issue, error)
 	ListIssues(ctx context.Context, repoID int64, opts IssueListOptions) ([]*Issue, error)
 	UpdateIssue(ctx context.Context, issue *Issue) error
 
@@ -135,7 +135,7 @@ type IssueStore interface {
 // PullRequestStore is the port for pull request persistence.
 type PullRequestStore interface {
 	CreatePullRequest(ctx context.Context, pr *PullRequest) error
-	GetPullRequestByNumber(ctx context.Context, repoID int64, number int64) (*PullRequest, error)
+	GetPullRequestByNumber(ctx context.Context, repoID, number int64) (*PullRequest, error)
 	ListPullRequests(ctx context.Context, repoID int64, opts PullRequestListOptions) ([]*PullRequest, error)
 	UpdatePullRequest(ctx context.Context, pr *PullRequest) error
 }

@@ -276,7 +276,7 @@ func TestLFSPushPull(t *testing.T) {
 	if _, err := rand.Read(binData); err != nil {
 		t.Fatalf("generate random data: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(repoDir, "data.bin"), binData, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(repoDir, "data.bin"), binData, 0o644); err != nil {
 		t.Fatalf("write data.bin: %v", err)
 	}
 	harness.GitAddCommit(t, repoDir, "data.bin", "", "add binary file")

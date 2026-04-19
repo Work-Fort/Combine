@@ -49,7 +49,7 @@ func GenerateSSHKey(dir string) (pubKeyPath, privKeyPath string, err error) {
 	}
 
 	privKeyPath = filepath.Join(dir, "id_ed25519")
-	if err := os.WriteFile(privKeyPath, pem.EncodeToMemory(privPEM), 0600); err != nil {
+	if err := os.WriteFile(privKeyPath, pem.EncodeToMemory(privPEM), 0o600); err != nil {
 		return "", "", fmt.Errorf("write private key: %w", err)
 	}
 
@@ -61,7 +61,7 @@ func GenerateSSHKey(dir string) (pubKeyPath, privKeyPath string, err error) {
 	_ = signer // used indirectly via sshPub
 
 	pubKeyPath = filepath.Join(dir, "id_ed25519.pub")
-	if err := os.WriteFile(pubKeyPath, ssh.MarshalAuthorizedKey(sshPub), 0644); err != nil {
+	if err := os.WriteFile(pubKeyPath, ssh.MarshalAuthorizedKey(sshPub), 0o644); err != nil {
 		return "", "", fmt.Errorf("write public key: %w", err)
 	}
 
@@ -220,10 +220,10 @@ func GitAddCommit(t *testing.T, dir, filename, content, message string) {
 	t.Helper()
 	if content != "" {
 		path := filepath.Join(dir, filename)
-		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			t.Fatalf("mkdir: %v", err)
 		}
-		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 			t.Fatalf("write file: %v", err)
 		}
 	}

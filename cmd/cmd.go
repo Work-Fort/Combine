@@ -9,12 +9,13 @@ import (
 	"path/filepath"
 
 	"charm.land/log/v2"
+	"github.com/spf13/cobra"
+
 	"github.com/Work-Fort/Combine/internal/app/backend"
 	"github.com/Work-Fort/Combine/internal/config"
 	"github.com/Work-Fort/Combine/internal/domain"
 	infra "github.com/Work-Fort/Combine/internal/infra"
 	"github.com/Work-Fort/Combine/internal/infra/hooks"
-	"github.com/spf13/cobra"
 )
 
 // ChainedInitBackendContext chains the root command's PersistentPreRunE
@@ -50,10 +51,10 @@ func InitBackendContext(cmd *cobra.Command, _ []string) error {
 	ctx = domain.WithStoreContext(ctx, store)
 
 	beCfg := backend.BackendConfig{
-		RepoDir:            filepath.Join(cfg.DataPath, "repos"),
-		DataDir:            cfg.DataPath,
-		AdminKeys:          cfg.AdminKeys(),
-		SSHClientKeyPath:   cfg.SSH.ClientKeyPath,
+		RepoDir:           filepath.Join(cfg.DataPath, "repos"),
+		DataDir:           cfg.DataPath,
+		AdminKeys:         cfg.AdminKeys(),
+		SSHClientKeyPath:  cfg.SSH.ClientKeyPath,
 		SSHKnownHostsPath: filepath.Join(cfg.DataPath, "ssh", "known_hosts"),
 	}
 	be := backend.New(ctx, store, beCfg, logger.WithPrefix("backend"))

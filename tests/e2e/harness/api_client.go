@@ -367,7 +367,7 @@ func (c *APIClient) GetPullRequestFiles(t *testing.T, repo string, number int) [
 }
 
 // CreateWebhook creates a webhook via the REST API.
-func (c *APIClient) CreateWebhook(t *testing.T, repo string, url string, events []string) map[string]any {
+func (c *APIClient) CreateWebhook(t *testing.T, repo, url string, events []string) map[string]any {
 	t.Helper()
 	body := map[string]any{
 		"url":    url,

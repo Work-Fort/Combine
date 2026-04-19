@@ -10,8 +10,9 @@ import (
 
 	"charm.land/log/v2"
 	gitm "github.com/aymanbagabas/git-module"
-	"github.com/Work-Fort/Combine/internal/infra/git"
 	"github.com/go-git/go-git/v5/plumbing/format/pktline"
+
+	"github.com/Work-Fort/Combine/internal/infra/git"
 )
 
 // ErrNoBranches is returned when a repo has no branches.
@@ -37,7 +38,7 @@ func WritePktlineErr(w io.Writer, err error) error {
 }
 
 // EnsureWithin ensures the given repo is within the repos directory.
-func EnsureWithin(reposDir string, repo string) error {
+func EnsureWithin(reposDir, repo string) error {
 	repoDir := filepath.Join(reposDir, repo)
 	absRepos, err := filepath.Abs(reposDir)
 	if err != nil {

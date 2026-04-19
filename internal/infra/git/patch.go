@@ -114,7 +114,7 @@ func (f *DiffFileChange) Mode() git.EntryMode {
 }
 
 // Files returns the diff files.
-func (f *DiffFile) Files() (from *DiffFileChange, to *DiffFileChange) {
+func (f *DiffFile) Files() (from, to *DiffFileChange) {
 	if f.OldIndex != ZeroID {
 		from = &DiffFileChange{
 			hash: f.OldIndex,
@@ -129,7 +129,7 @@ func (f *DiffFile) Files() (from *DiffFileChange, to *DiffFileChange) {
 			mode: f.Mode(),
 		}
 	}
-	return
+	return from, to
 }
 
 // FileStats

@@ -8,10 +8,11 @@ import (
 	"strings"
 
 	"charm.land/log/v2"
-	"github.com/Work-Fort/Combine/internal/app/backend"
-	"github.com/Work-Fort/Combine/internal/domain"
-	"github.com/Work-Fort/Combine/internal/config"
 	"github.com/golang-jwt/jwt/v5"
+
+	"github.com/Work-Fort/Combine/internal/app/backend"
+	"github.com/Work-Fort/Combine/internal/config"
+	"github.com/Work-Fort/Combine/internal/domain"
 )
 
 // authenticate authenticates the user from the request.

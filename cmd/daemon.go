@@ -14,19 +14,20 @@ import (
 	"time"
 
 	"charm.land/log/v2"
+	"github.com/charmbracelet/ssh"
+	"github.com/spf13/cobra"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/Work-Fort/Combine/internal/app/backend"
 	"github.com/Work-Fort/Combine/internal/config"
 	"github.com/Work-Fort/Combine/internal/domain"
 	infra "github.com/Work-Fort/Combine/internal/infra"
 	"github.com/Work-Fort/Combine/internal/infra/cron"
 	"github.com/Work-Fort/Combine/internal/infra/hooks"
-	"github.com/Work-Fort/Combine/internal/infra/httpapi"
+	web "github.com/Work-Fort/Combine/internal/infra/httpapi"
 	"github.com/Work-Fort/Combine/internal/infra/jobs"
 	sshsrv "github.com/Work-Fort/Combine/internal/infra/ssh"
 	"github.com/Work-Fort/Combine/internal/infra/stats"
-	"github.com/charmbracelet/ssh"
-	"github.com/spf13/cobra"
-	"golang.org/x/sync/errgroup"
 )
 
 // NewDaemonCmd creates the daemon command.
@@ -97,10 +98,10 @@ func runDaemon(ctx context.Context, syncHooksFlag bool) error {
 
 	// Create backend
 	beCfg := backend.BackendConfig{
-		RepoDir:            filepath.Join(cfg.DataPath, "repos"),
-		DataDir:            cfg.DataPath,
-		AdminKeys:          cfg.AdminKeys(),
-		SSHClientKeyPath:   cfg.SSH.ClientKeyPath,
+		RepoDir:           filepath.Join(cfg.DataPath, "repos"),
+		DataDir:           cfg.DataPath,
+		AdminKeys:         cfg.AdminKeys(),
+		SSHClientKeyPath:  cfg.SSH.ClientKeyPath,
 		SSHKnownHostsPath: filepath.Join(cfg.DataPath, "ssh", "known_hosts"),
 	}
 	be := backend.New(ctx, store, beCfg, logger.WithPrefix("backend"))

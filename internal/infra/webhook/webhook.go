@@ -13,13 +13,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/go-querystring/query"
+	"github.com/google/uuid"
+
+	"github.com/Work-Fort/Combine/internal/config"
 	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/Work-Fort/Combine/internal/infra/git"
 	"github.com/Work-Fort/Combine/internal/infra/utils"
 	"github.com/Work-Fort/Combine/internal/infra/version"
-	"github.com/Work-Fort/Combine/internal/config"
-	"github.com/google/go-querystring/query"
-	"github.com/google/uuid"
 )
 
 // Hook is a repository webhook.
@@ -74,7 +75,7 @@ var secureHTTPClient = &http.Client{
 
 // do sends a webhook.
 // Caller must close the returned body.
-func do(ctx context.Context, url string, method string, headers http.Header, body io.Reader) (*http.Response, error) {
+func do(ctx context.Context, url, method string, headers http.Header, body io.Reader) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return nil, err
@@ -170,7 +171,7 @@ func SendEvent(ctx context.Context, payload EventPayload) error {
 	return nil
 }
 
-func repoURL(publicURL string, repo string) string {
+func repoURL(publicURL, repo string) string {
 	return fmt.Sprintf("%s/%s.git", publicURL, utils.SanitizeRepo(repo))
 }
 

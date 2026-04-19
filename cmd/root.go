@@ -6,10 +6,11 @@ import (
 	"runtime/debug"
 
 	"charm.land/log/v2"
-	"github.com/Work-Fort/Combine/internal/config"
-	"github.com/Work-Fort/Combine/internal/infra/version"
 	"github.com/spf13/cobra"
 	"go.uber.org/automaxprocs/maxprocs"
+
+	"github.com/Work-Fort/Combine/internal/config"
+	"github.com/Work-Fort/Combine/internal/infra/version"
 )
 
 var (

@@ -3,8 +3,8 @@ package webhook
 import (
 	"context"
 
-	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/Work-Fort/Combine/internal/config"
+	"github.com/Work-Fort/Combine/internal/domain"
 )
 
 // RepositoryEvent is a repository payload.

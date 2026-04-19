@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Work-Fort/Combine/internal/domain"
 	"github.com/google/uuid"
+
+	"github.com/Work-Fort/Combine/internal/domain"
 )
 
 func scanWebhook(row interface{ Scan(dest ...any) error }) (*domain.Webhook, error) {
@@ -64,7 +65,7 @@ const webhookDeliveryColumns = `id, webhook_id, event, request_url, request_meth
 
 // --- Webhooks ---
 
-func getWebhookByID(ctx context.Context, q querier, repoID int64, id int64) (*domain.Webhook, error) {
+func getWebhookByID(ctx context.Context, q querier, repoID, id int64) (*domain.Webhook, error) {
 	row := q.QueryRowContext(ctx,
 		`SELECT `+webhookColumns+` FROM webhooks WHERE repo_id = $1 AND id = $2`, repoID, id)
 	w, err := scanWebhook(row)
@@ -125,7 +126,7 @@ func createWebhook(ctx context.Context, q querier, repoID int64, url string, con
 	return id, nil
 }
 
-func updateWebhookByID(ctx context.Context, q querier, repoID int64, id int64, url string, contentType int, active bool) error {
+func updateWebhookByID(ctx context.Context, q querier, repoID, id int64, url string, contentType int, active bool) error {
 	_, err := q.ExecContext(ctx,
 		`UPDATE webhooks SET url = $1, content_type = $2, active = $3, updated_at = NOW()
 		 WHERE repo_id = $4 AND id = $5`,
@@ -138,7 +139,7 @@ func deleteWebhookByID(ctx context.Context, q querier, id int64) error {
 	return err
 }
 
-func deleteWebhookForRepoByID(ctx context.Context, q querier, repoID int64, id int64) error {
+func deleteWebhookForRepoByID(ctx context.Context, q querier, repoID, id int64) error {
 	_, err := q.ExecContext(ctx, `DELETE FROM webhooks WHERE repo_id = $1 AND id = $2`, repoID, id)
 	return err
 }
@@ -253,7 +254,7 @@ func listWebhookDeliveriesByWebhookID(ctx context.Context, q querier, webhookID 
 	return deliveries, rows.Err()
 }
 
-func createWebhookDelivery(ctx context.Context, q querier, id uuid.UUID, webhookID int64, event int, url string, method string, requestError error, requestHeaders string, requestBody string, responseStatus int, responseHeaders string, responseBody string) error {
+func createWebhookDelivery(ctx context.Context, q querier, id uuid.UUID, webhookID int64, event int, url, method string, requestError error, requestHeaders, requestBody string, responseStatus int, responseHeaders, responseBody string) error {
 	var reqErr string
 	if requestError != nil {
 		reqErr = requestError.Error()
@@ -273,102 +274,132 @@ func deleteWebhookDeliveryByID(ctx context.Context, q querier, webhookID int64, 
 
 // Store methods.
 
-func (s *Store) GetWebhookByID(ctx context.Context, repoID int64, id int64) (*domain.Webhook, error) {
+func (s *Store) GetWebhookByID(ctx context.Context, repoID, id int64) (*domain.Webhook, error) {
 	return getWebhookByID(ctx, s.q(), repoID, id)
 }
+
 func (s *Store) ListWebhooksByRepoID(ctx context.Context, repoID int64) ([]*domain.Webhook, error) {
 	return listWebhooksByRepoID(ctx, s.q(), repoID)
 }
+
 func (s *Store) ListWebhooksByRepoIDWhereEvent(ctx context.Context, repoID int64, events []int) ([]*domain.Webhook, error) {
 	return listWebhooksByRepoIDWhereEvent(ctx, s.q(), repoID, events)
 }
+
 func (s *Store) CreateWebhook(ctx context.Context, repoID int64, url string, contentType int, active bool) (int64, error) {
 	return createWebhook(ctx, s.q(), repoID, url, contentType, active)
 }
-func (s *Store) UpdateWebhookByID(ctx context.Context, repoID int64, id int64, url string, contentType int, active bool) error {
+
+func (s *Store) UpdateWebhookByID(ctx context.Context, repoID, id int64, url string, contentType int, active bool) error {
 	return updateWebhookByID(ctx, s.q(), repoID, id, url, contentType, active)
 }
+
 func (s *Store) DeleteWebhookByID(ctx context.Context, id int64) error {
 	return deleteWebhookByID(ctx, s.q(), id)
 }
-func (s *Store) DeleteWebhookForRepoByID(ctx context.Context, repoID int64, id int64) error {
+
+func (s *Store) DeleteWebhookForRepoByID(ctx context.Context, repoID, id int64) error {
 	return deleteWebhookForRepoByID(ctx, s.q(), repoID, id)
 }
+
 func (s *Store) GetWebhookEventByID(ctx context.Context, id int64) (*domain.WebhookEvent, error) {
 	return getWebhookEventByID(ctx, s.q(), id)
 }
+
 func (s *Store) ListWebhookEventsByWebhookID(ctx context.Context, webhookID int64) ([]*domain.WebhookEvent, error) {
 	return listWebhookEventsByWebhookID(ctx, s.q(), webhookID)
 }
+
 func (s *Store) CreateWebhookEvents(ctx context.Context, webhookID int64, events []int) error {
 	return createWebhookEvents(ctx, s.q(), webhookID, events)
 }
+
 func (s *Store) DeleteWebhookEventsByID(ctx context.Context, ids []int64) error {
 	return deleteWebhookEventsByID(ctx, s.q(), ids)
 }
+
 func (s *Store) GetWebhookDeliveryByID(ctx context.Context, webhookID int64, id uuid.UUID) (*domain.WebhookDelivery, error) {
 	return getWebhookDeliveryByID(ctx, s.q(), webhookID, id)
 }
+
 func (s *Store) GetWebhookDeliveriesByWebhookID(ctx context.Context, webhookID int64) ([]*domain.WebhookDelivery, error) {
 	return getWebhookDeliveriesByWebhookID(ctx, s.q(), webhookID)
 }
+
 func (s *Store) ListWebhookDeliveriesByWebhookID(ctx context.Context, webhookID int64) ([]*domain.WebhookDelivery, error) {
 	return listWebhookDeliveriesByWebhookID(ctx, s.q(), webhookID)
 }
-func (s *Store) CreateWebhookDelivery(ctx context.Context, id uuid.UUID, webhookID int64, event int, url string, method string, requestError error, requestHeaders string, requestBody string, responseStatus int, responseHeaders string, responseBody string) error {
+
+func (s *Store) CreateWebhookDelivery(ctx context.Context, id uuid.UUID, webhookID int64, event int, url, method string, requestError error, requestHeaders, requestBody string, responseStatus int, responseHeaders, responseBody string) error {
 	return createWebhookDelivery(ctx, s.q(), id, webhookID, event, url, method, requestError, requestHeaders, requestBody, responseStatus, responseHeaders, responseBody)
 }
+
 func (s *Store) DeleteWebhookDeliveryByID(ctx context.Context, webhookID int64, id uuid.UUID) error {
 	return deleteWebhookDeliveryByID(ctx, s.q(), webhookID, id)
 }
 
 // txStore methods.
 
-func (ts *txStore) GetWebhookByID(ctx context.Context, repoID int64, id int64) (*domain.Webhook, error) {
+func (ts *txStore) GetWebhookByID(ctx context.Context, repoID, id int64) (*domain.Webhook, error) {
 	return getWebhookByID(ctx, ts.q(), repoID, id)
 }
+
 func (ts *txStore) ListWebhooksByRepoID(ctx context.Context, repoID int64) ([]*domain.Webhook, error) {
 	return listWebhooksByRepoID(ctx, ts.q(), repoID)
 }
+
 func (ts *txStore) ListWebhooksByRepoIDWhereEvent(ctx context.Context, repoID int64, events []int) ([]*domain.Webhook, error) {
 	return listWebhooksByRepoIDWhereEvent(ctx, ts.q(), repoID, events)
 }
+
 func (ts *txStore) CreateWebhook(ctx context.Context, repoID int64, url string, contentType int, active bool) (int64, error) {
 	return createWebhook(ctx, ts.q(), repoID, url, contentType, active)
 }
-func (ts *txStore) UpdateWebhookByID(ctx context.Context, repoID int64, id int64, url string, contentType int, active bool) error {
+
+func (ts *txStore) UpdateWebhookByID(ctx context.Context, repoID, id int64, url string, contentType int, active bool) error {
 	return updateWebhookByID(ctx, ts.q(), repoID, id, url, contentType, active)
 }
+
 func (ts *txStore) DeleteWebhookByID(ctx context.Context, id int64) error {
 	return deleteWebhookByID(ctx, ts.q(), id)
 }
-func (ts *txStore) DeleteWebhookForRepoByID(ctx context.Context, repoID int64, id int64) error {
+
+func (ts *txStore) DeleteWebhookForRepoByID(ctx context.Context, repoID, id int64) error {
 	return deleteWebhookForRepoByID(ctx, ts.q(), repoID, id)
 }
+
 func (ts *txStore) GetWebhookEventByID(ctx context.Context, id int64) (*domain.WebhookEvent, error) {
 	return getWebhookEventByID(ctx, ts.q(), id)
 }
+
 func (ts *txStore) ListWebhookEventsByWebhookID(ctx context.Context, webhookID int64) ([]*domain.WebhookEvent, error) {
 	return listWebhookEventsByWebhookID(ctx, ts.q(), webhookID)
 }
+
 func (ts *txStore) CreateWebhookEvents(ctx context.Context, webhookID int64, events []int) error {
 	return createWebhookEvents(ctx, ts.q(), webhookID, events)
 }
+
 func (ts *txStore) DeleteWebhookEventsByID(ctx context.Context, ids []int64) error {
 	return deleteWebhookEventsByID(ctx, ts.q(), ids)
 }
+
 func (ts *txStore) GetWebhookDeliveryByID(ctx context.Context, webhookID int64, id uuid.UUID) (*domain.WebhookDelivery, error) {
 	return getWebhookDeliveryByID(ctx, ts.q(), webhookID, id)
 }
+
 func (ts *txStore) GetWebhookDeliveriesByWebhookID(ctx context.Context, webhookID int64) ([]*domain.WebhookDelivery, error) {
 	return getWebhookDeliveriesByWebhookID(ctx, ts.q(), webhookID)
 }
+
 func (ts *txStore) ListWebhookDeliveriesByWebhookID(ctx context.Context, webhookID int64) ([]*domain.WebhookDelivery, error) {
 	return listWebhookDeliveriesByWebhookID(ctx, ts.q(), webhookID)
 }
-func (ts *txStore) CreateWebhookDelivery(ctx context.Context, id uuid.UUID, webhookID int64, event int, url string, method string, requestError error, requestHeaders string, requestBody string, responseStatus int, responseHeaders string, responseBody string) error {
+
+func (ts *txStore) CreateWebhookDelivery(ctx context.Context, id uuid.UUID, webhookID int64, event int, url, method string, requestError error, requestHeaders, requestBody string, responseStatus int, responseHeaders, responseBody string) error {
 	return createWebhookDelivery(ctx, ts.q(), id, webhookID, event, url, method, requestError, requestHeaders, requestBody, responseStatus, responseHeaders, responseBody)
 }
+
 func (ts *txStore) DeleteWebhookDeliveryByID(ctx context.Context, webhookID int64, id uuid.UUID) error {
 	return deleteWebhookDeliveryByID(ctx, ts.q(), webhookID, id)
 }

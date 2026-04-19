@@ -1,14 +1,15 @@
 package main
 
 import (
+	"fmt"
+
+	mcobra "github.com/muesli/mango-cobra"
+	"github.com/muesli/roff"
+
 	"github.com/Work-Fort/Combine/cmd"
 	"github.com/Work-Fort/Combine/cmd/combine/admin"
 	"github.com/Work-Fort/Combine/cmd/combine/hook"
 	"github.com/Work-Fort/Combine/cmd/mcpbridge"
-	mcobra "github.com/muesli/mango-cobra"
-	"github.com/muesli/roff"
-
-	"fmt"
 
 	"github.com/spf13/cobra"
 )

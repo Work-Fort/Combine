@@ -189,7 +189,7 @@ func (s *Store) CreateIssue(ctx context.Context, issue *domain.Issue) error {
 	return createIssue(ctx, s.q(), issue)
 }
 
-func (s *Store) GetIssueByNumber(ctx context.Context, repoID int64, number int64) (*domain.Issue, error) {
+func (s *Store) GetIssueByNumber(ctx context.Context, repoID, number int64) (*domain.Issue, error) {
 	return getIssueByNumber(ctx, s.q(), repoID, number)
 }
 
@@ -219,7 +219,7 @@ func (ts *txStore) CreateIssue(ctx context.Context, issue *domain.Issue) error {
 	return createIssue(ctx, ts.q(), issue)
 }
 
-func (ts *txStore) GetIssueByNumber(ctx context.Context, repoID int64, number int64) (*domain.Issue, error) {
+func (ts *txStore) GetIssueByNumber(ctx context.Context, repoID, number int64) (*domain.Issue, error) {
 	return getIssueByNumber(ctx, ts.q(), repoID, number)
 }
 

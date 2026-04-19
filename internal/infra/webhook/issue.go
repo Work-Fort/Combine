@@ -147,9 +147,9 @@ func NewIssueClosedEvent(ctx context.Context, identity *domain.Identity, repo *d
 // NewIssueCommentEvent creates a new issue comment event.
 func NewIssueCommentEvent(ctx context.Context, identity *domain.Identity, repo *domain.Repo, issue *domain.Issue, comment *domain.IssueComment) (IssueCommentEvent, error) {
 	return IssueCommentEvent{
-		Common:  buildIssueCommon(ctx, repo, EventIssueComment),
-		Sender:  identitySender(identity),
-		Issue:   buildIssuePayload(issue),
+		Common: buildIssueCommon(ctx, repo, EventIssueComment),
+		Sender: identitySender(identity),
+		Issue:  buildIssuePayload(issue),
 		Comment: CommentPayload{
 			ID:        comment.ID,
 			Body:      comment.Body,

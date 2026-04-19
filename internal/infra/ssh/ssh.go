@@ -12,13 +12,14 @@ import (
 	"charm.land/wish/v2"
 	rm "charm.land/wish/v2/recover"
 	"github.com/charmbracelet/keygen"
-	"github.com/Work-Fort/Combine/internal/app/backend"
-	"github.com/Work-Fort/Combine/internal/domain"
-	"github.com/Work-Fort/Combine/internal/config"
 	"github.com/charmbracelet/ssh"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	gossh "golang.org/x/crypto/ssh"
+
+	"github.com/Work-Fort/Combine/internal/app/backend"
+	"github.com/Work-Fort/Combine/internal/config"
+	"github.com/Work-Fort/Combine/internal/domain"
 )
 
 var (
@@ -164,7 +165,7 @@ func (s *SSHServer) PublicKeyHandler(ctx ssh.Context, pk ssh.PublicKey) (allowed
 	perms.Extensions["pubkey-fp"] = gossh.FingerprintSHA256(pk)
 	ctx.SetValue(ssh.ContextKeyPermissions, perms)
 
-	return
+	return allowed
 }
 
 // KeyboardInteractiveHandler handles keyboard interactive authentication.
