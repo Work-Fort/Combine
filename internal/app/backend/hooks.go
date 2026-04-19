@@ -35,8 +35,7 @@ func (d *Backend) PreReceive(_ context.Context, _, _ io.Writer, repo string, arg
 func (d *Backend) Update(ctx context.Context, _, _ io.Writer, repo string, arg hooks.HookArg) {
 	d.logger.Debug("update hook called", "repo", repo, "arg", arg)
 
-	// Find user
-	var user *domain.User
+	var identity *domain.Identity
 	if pubkey := os.Getenv("COMBINE_PUBLIC_KEY"); pubkey != "" {
 		pk, _, err := sshutils.ParseAuthorizedKey(pubkey)
 		if err != nil {
@@ -44,20 +43,20 @@ func (d *Backend) Update(ctx context.Context, _, _ io.Writer, repo string, arg h
 			return
 		}
 
-		user, err = d.UserByPublicKey(ctx, pk)
+		identity, err = d.store.GetIdentityByPublicKey(ctx, pk)
 		if err != nil {
-			d.logger.Error("error finding user from public key", "key", pubkey, "err", err)
+			d.logger.Error("error finding identity from public key", "key", pubkey, "err", err)
 			return
 		}
 	} else if username := os.Getenv("COMBINE_USERNAME"); username != "" {
 		var err error
-		user, err = d.User(ctx, username)
+		identity, err = d.store.GetIdentityByUsername(ctx, username)
 		if err != nil {
-			d.logger.Error("error finding user from username", "username", username, "err", err)
+			d.logger.Error("error finding identity from username", "username", username, "err", err)
 			return
 		}
 	} else {
-		d.logger.Error("error finding user")
+		d.logger.Error("error finding identity: no public key or username env var set")
 		return
 	}
 
@@ -70,14 +69,14 @@ func (d *Backend) Update(ctx context.Context, _, _ io.Writer, repo string, arg h
 
 	// TODO: run this async
 	if git.IsZeroHash(arg.OldSha) || git.IsZeroHash(arg.NewSha) {
-		wh, err := webhook.NewBranchTagEvent(ctx, user, r, arg.RefName, arg.OldSha, arg.NewSha)
+		wh, err := webhook.NewBranchTagEvent(ctx, identity, r, arg.RefName, arg.OldSha, arg.NewSha)
 		if err != nil {
 			d.logger.Error("error creating branch_tag webhook", "err", err)
 		} else if err := webhook.SendEvent(ctx, wh); err != nil {
 			d.logger.Error("error sending branch_tag webhook", "err", err)
 		}
 	}
-	wh, err := webhook.NewPushEvent(ctx, user, r, arg.RefName, arg.OldSha, arg.NewSha)
+	wh, err := webhook.NewPushEvent(ctx, identity, r, arg.RefName, arg.OldSha, arg.NewSha)
 	if err != nil {
 		d.logger.Error("error creating push webhook", "err", err)
 	} else if err := webhook.SendEvent(ctx, wh); err != nil {

@@ -24,7 +24,7 @@ import (
 )
 
 // CreateRepository creates a new repository.
-func (d *Backend) CreateRepository(ctx context.Context, name string, user *domain.User, opts domain.RepoOptions) (*domain.Repo, error) {
+func (d *Backend) CreateRepository(ctx context.Context, name string, identity *domain.Identity, opts domain.RepoOptions) (*domain.Repo, error) {
 	name = utils.SanitizeRepo(name)
 	if err := utils.ValidateRepo(name); err != nil {
 		return nil, err
@@ -32,10 +32,10 @@ func (d *Backend) CreateRepository(ctx context.Context, name string, user *domai
 
 	rp := d.repoPath(name)
 
-	var userID *int64
-	if user != nil {
-		uid := user.ID
-		userID = &uid
+	var identityID *string
+	if identity != nil {
+		id := identity.ID
+		identityID = &id
 	}
 
 	if err := d.store.Transaction(ctx, func(tx domain.Store) error {
@@ -46,7 +46,7 @@ func (d *Backend) CreateRepository(ctx context.Context, name string, user *domai
 			Private:     opts.Private,
 			Hidden:      opts.Hidden,
 			Mirror:      opts.Mirror,
-			UserID:      userID,
+			IdentityID:  identityID,
 		}
 		if err := tx.CreateRepo(ctx, repo); err != nil {
 			return err
@@ -78,7 +78,7 @@ func (d *Backend) CreateRepository(ctx context.Context, name string, user *domai
 
 // ImportRepository imports a repository from remote.
 // XXX: This a expensive operation and should be run in a goroutine.
-func (d *Backend) ImportRepository(_ context.Context, name string, user *domain.User, remote string, opts domain.RepoOptions) (*domain.Repo, error) {
+func (d *Backend) ImportRepository(_ context.Context, name string, identity *domain.Identity, remote string, opts domain.RepoOptions) (*domain.Repo, error) {
 	name = utils.SanitizeRepo(name)
 	if err := utils.ValidateRepo(name); err != nil {
 		return nil, err
@@ -99,7 +99,7 @@ func (d *Backend) ImportRepository(_ context.Context, name string, user *domain.
 	repoc := make(chan *domain.Repo, 1)
 	d.logger.Info("importing repository", "name", name, "remote", remote, "path", rp)
 	d.manager.Add(tid, func(ctx context.Context) (err error) {
-		ctx = domain.WithUserContext(ctx, user)
+		ctx = domain.WithIdentityContext(ctx, identity)
 
 		copts := git.CloneOptions{
 			Bare:   true,
@@ -127,7 +127,7 @@ func (d *Backend) ImportRepository(_ context.Context, name string, user *domain.
 			return err
 		}
 
-		r, err := d.CreateRepository(ctx, name, user, opts)
+		r, err := d.CreateRepository(ctx, name, identity, opts)
 		if err != nil {
 			d.logger.Error("failed to create repository", "err", err, "name", name)
 			return err
@@ -200,7 +200,7 @@ func (d *Backend) DeleteRepository(ctx context.Context, name string) error {
 	name = utils.SanitizeRepo(name)
 	rp := d.repoPath(name)
 
-	user := domain.UserFromContext(ctx)
+	identity := domain.IdentityFromContext(ctx)
 	r, err := d.Repository(ctx, name)
 	if err != nil {
 		return err
@@ -208,7 +208,7 @@ func (d *Backend) DeleteRepository(ctx context.Context, name string) error {
 
 	// We create the webhook event before deleting the repository so we can
 	// send the event after deleting the repository.
-	wh, err := webhook.NewRepositoryEvent(ctx, user, r, webhook.RepositoryEventActionDelete)
+	wh, err := webhook.NewRepositoryEvent(ctx, identity, r, webhook.RepositoryEventActionDelete)
 	if err != nil {
 		return err
 	}
@@ -265,14 +265,9 @@ func (d *Backend) DeleteRepository(ctx context.Context, name string) error {
 	return webhook.SendEvent(ctx, wh)
 }
 
-// DeleteUserRepositories deletes all user repositories.
-func (d *Backend) DeleteUserRepositories(ctx context.Context, username string) error {
-	user, err := d.store.GetUserByUsername(ctx, username)
-	if err != nil {
-		return err
-	}
-
-	repos, err := d.store.ListReposByUserID(ctx, user.ID)
+// DeleteIdentityRepositories deletes all repositories owned by an identity.
+func (d *Backend) DeleteIdentityRepositories(ctx context.Context, identityID string) error {
+	repos, err := d.store.ListReposByIdentityID(ctx, identityID)
 	if err != nil {
 		return err
 	}
@@ -336,13 +331,13 @@ func (d *Backend) RenameRepository(ctx context.Context, oldName, newName string)
 		return err
 	}
 
-	user := domain.UserFromContext(ctx)
+	identity := domain.IdentityFromContext(ctx)
 	repo, err := d.Repository(ctx, newName)
 	if err != nil {
 		return err
 	}
 
-	wh, err := webhook.NewRepositoryEvent(ctx, user, repo, webhook.RepositoryEventActionRename)
+	wh, err := webhook.NewRepositoryEvent(ctx, identity, repo, webhook.RepositoryEventActionRename)
 	if err != nil {
 		return err
 	}
@@ -505,14 +500,14 @@ func (d *Backend) SetPrivate(ctx context.Context, name string, private bool) err
 		return err
 	}
 
-	user := domain.UserFromContext(ctx)
+	identity := domain.IdentityFromContext(ctx)
 	repo, err := d.Repository(ctx, name)
 	if err != nil {
 		return err
 	}
 
 	if repo.Private != !private {
-		wh, err := webhook.NewRepositoryEvent(ctx, user, repo, webhook.RepositoryEventActionVisibilityChange)
+		wh, err := webhook.NewRepositoryEvent(ctx, identity, repo, webhook.RepositoryEventActionVisibilityChange)
 		if err != nil {
 			return err
 		}
