@@ -40,7 +40,7 @@ mise install              # install pinned toolchain
 mise run lint             # gofmt + go vet + golangci-lint
 mise run test             # unit tests with -race and coverage
 mise run build:dev        # build ./build/combine
-mise run e2e              # build then run e2e tests against SQLite
+mise run e2e              # run e2e tests against SQLite (test binary built internally)
 mise run ci               # lint + test + e2e (full default-backend run)
 ```
 
@@ -51,7 +51,7 @@ is SQLite; setting both runs against Postgres:
 
 ```bash
 COMBINE_DB_DRIVER=postgres \
-  COMBINE_DB_DATA_SOURCE="postgres://postgres@127.0.0.1/combine_e2e?sslmode=disable" \
+  COMBINE_DB_DATA_SOURCE="postgres://combine:combine@localhost:5432/combine_test?sslmode=disable" \
   mise run e2e
 ```
 

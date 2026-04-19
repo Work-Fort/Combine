@@ -116,6 +116,9 @@ Not part of the initial core feature set.
 
 - [ ] **No mise tasks** — `combine/lead` has neither `mise.toml` nor `.mise/tasks/`. Build goes through `go build` directly, which breaks the "use mise tasks" convention established for all other Go services in WorkFort. Add parity tasks (`build:release`, `build:dev`, `test`, `lint`, `docker:build`, `install:local`) matching the shape in hive/sharkfin/flow.
 - [ ] **No standard `/ui/health` manifest** — Combine returns `{service, routes, version}` from `/ui/health` where Pylon expects `{name, label, route, ws_paths, ...}`. Pylon marks it connected but with empty `name`/`label`, so it shows as an unnamed dot in Scope's top nav and `pylon.ServiceByName("combine")` returns nothing. Align the response shape with the manifest Pylon consumes.
+- [ ] **E2E suite default-timeout failure** — `go test ./...` in `tests/e2e/` times out with the default 2-minute deadline because the full sequential suite takes ~190 s (many tests each incur 5–14 s of real SSH round-trips). Running `go test -timeout 600s ./...` passes all 30 tests. Fix: add a `testdata` flag, document the correct invocation, or wire a `-timeout 600s` default into a mise task so the suite is never run raw.
+- [ ] **Lint: 3 issues in `internal/infra/httpapi/passport_test.go`** — `gofumpt` formatting violation on line 39; two `noctx` violations on lines 109 and 136 (`httptest.NewRequest` must use `NewRequestWithContext`). golangci-lint exits non-zero; the repo is currently **not lintable** until these are fixed.
+- [ ] **No Postgres e2e coverage** — `internal/infra/postgres/` has zero test files (unit or integration), and the e2e harness always starts the daemon with the default SQLite driver (no `COMBINE_DB_DRIVER=postgres` path). All 30 e2e scenarios run SQLite only; the Postgres adapter is untested end-to-end. Per the 2026-04-19 dual-backend rule, Postgres e2e coverage is required.
 
 ---
 

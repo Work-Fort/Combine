@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 #MISE description="Run end-to-end tests (backend selected by COMBINE_DB_* env vars)"
-#MISE depends=["build:dev"]
 #MISE dir="tests/e2e"
 set -euo pipefail
 
-export COMBINE_BINARY="${MISE_PROJECT_ROOT}/build/combine"
 go test -v -race -timeout 600s ./...
