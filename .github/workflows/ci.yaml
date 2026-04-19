@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v3
+      - run: sudo apt-get update && sudo apt-get install -y git-lfs
+      - run: mise run ci
+
+  e2e-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: combine_test
+          POSTGRES_USER: combine
+          POSTGRES_PASSWORD: combine
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v3
+      - run: sudo apt-get update && sudo apt-get install -y git-lfs
+      - run: mise run build:dev
+      - run: mise run e2e
+        env:
+          COMBINE_DB_DRIVER: postgres
+          COMBINE_DB_DATA_SOURCE: postgres://combine:combine@localhost:5432/combine_test?sslmode=disable
