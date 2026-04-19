@@ -206,7 +206,7 @@ func withAccess(next http.Handler) http.HandlerFunc {
 		ctx = domain.WithRepoContext(ctx, repo)
 		r = r.WithContext(ctx)
 
-		user, err := authenticate(r)
+		identity, err := authenticate(r)
 		if err != nil {
 			switch {
 			case errors.Is(err, ErrInvalidToken):
@@ -216,18 +216,18 @@ func withAccess(next http.Handler) http.HandlerFunc {
 			}
 		}
 
-		if user == nil && !be.AllowKeyless(ctx) {
+		if identity == nil && !be.AllowKeyless(ctx) {
 			askCredentials(w, r)
 			renderUnauthorized(w, r)
 			return
 		}
 
-		// Store user in context
-		ctx = domain.WithUserContext(ctx, user)
+		// Store identity in context
+		ctx = domain.WithIdentityContext(ctx, identity)
 		r = r.WithContext(ctx)
 
-		if user != nil {
-			logger.Debug("authenticated", "username", user.Username)
+		if identity != nil {
+			logger.Debug("authenticated", "username", identity.Username)
 		}
 
 		service := git.Service(mux.Vars(r)["service"])
@@ -236,7 +236,7 @@ func withAccess(next http.Handler) http.HandlerFunc {
 			service = getServiceType(r)
 		}
 
-		accessLevel := be.AccessLevelForUser(ctx, repoName, user)
+		accessLevel := be.AccessLevelForIdentity(ctx, repoName, identity)
 		ctx = domain.WithAccessLevelContext(ctx, accessLevel)
 		r = r.WithContext(ctx)
 
@@ -252,7 +252,7 @@ func withAccess(next http.Handler) http.HandlerFunc {
 
 			// Create the repo if it doesn't exist.
 			if repo == nil {
-				repo, err = be.CreateRepository(ctx, repoName, user, domain.RepoOptions{})
+				repo, err = be.CreateRepository(ctx, repoName, identity, domain.RepoOptions{})
 				if err != nil {
 					logger.Error("failed to create repository", "repo", repoName, "err", err)
 					renderInternalServerError(w, r)
@@ -268,7 +268,7 @@ func withAccess(next http.Handler) http.HandlerFunc {
 			if repo == nil {
 				renderNotFound(w, r)
 				return
-			} else if errors.Is(err, ErrInvalidToken) || errors.Is(err, ErrInvalidPassword) {
+			} else if errors.Is(err, ErrInvalidToken) {
 				renderForbidden(w, r)
 				return
 			} else if accessLevel < domain.ReadOnlyAccess {
@@ -316,7 +316,7 @@ func withAccess(next http.Handler) http.HandlerFunc {
 					renderJSON(w, http.StatusNotFound, lfs.ErrorResponse{
 						Message: "repository not found",
 					})
-				} else if errors.Is(err, ErrInvalidToken) || errors.Is(err, ErrInvalidPassword) {
+				} else if errors.Is(err, ErrInvalidToken) {
 					renderJSON(w, http.StatusForbidden, lfs.ErrorResponse{
 						Message: "bad credentials",
 					})
@@ -333,7 +333,7 @@ func withAccess(next http.Handler) http.HandlerFunc {
 		switch {
 		case r.URL.Query().Get("go-get") == "1" && accessLevel >= domain.ReadOnlyAccess:
 			break
-		case errors.Is(err, ErrInvalidToken), errors.Is(err, ErrInvalidPassword):
+		case errors.Is(err, ErrInvalidToken):
 			renderForbidden(w, r)
 			return
 		case repo == nil, accessLevel < domain.ReadOnlyAccess:
@@ -380,16 +380,16 @@ func serviceRpc(w http.ResponseWriter, r *http.Request) {
 		cmd.Args = append(cmd.Args, "--stateless-rpc")
 	}
 
-	user := domain.UserFromContext(ctx)
+	identity := domain.IdentityFromContext(ctx)
 	cmd.Env = cfg.Environ()
 	cmd.Env = append(cmd.Env, []string{
 		"COMBINE_REPO_NAME=" + repoName,
 		"COMBINE_REPO_PATH=" + dir,
 		"COMBINE_LOG_PATH=" + filepath.Join(cfg.DataPath, "log", "hooks.log"),
 	}...)
-	if user != nil {
+	if identity != nil {
 		cmd.Env = append(cmd.Env, []string{
-			"COMBINE_USERNAME=" + user.Username,
+			"COMBINE_USERNAME=" + identity.Username,
 		}...)
 	}
 	if len(version) != 0 {
@@ -480,16 +480,16 @@ func getInfoRefs(w http.ResponseWriter, r *http.Request) {
 			Args:   []string{"--stateless-rpc", "--advertise-refs"},
 		}
 
-		user := domain.UserFromContext(ctx)
+		identity := domain.IdentityFromContext(ctx)
 		cmd.Env = cfg.Environ()
 		cmd.Env = append(cmd.Env, []string{
 			"COMBINE_REPO_NAME=" + repoName,
 			"COMBINE_REPO_PATH=" + dir,
 			"COMBINE_LOG_PATH=" + filepath.Join(cfg.DataPath, "log", "hooks.log"),
 		}...)
-		if user != nil {
+		if identity != nil {
 			cmd.Env = append(cmd.Env, []string{
-				"COMBINE_USERNAME=" + user.Username,
+				"COMBINE_USERNAME=" + identity.Username,
 			}...)
 		}
 		if len(protocol) != 0 {

@@ -3,7 +3,6 @@ package web
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -15,61 +14,23 @@ import (
 	"github.com/Work-Fort/Combine/internal/domain"
 )
 
-// authenticate authenticates the user from the request.
-func authenticate(r *http.Request) (*domain.User, error) {
-	// Prefer the Authorization header
-	user, err := parseAuthHdr(r)
-	if err != nil || user == nil {
-		if errors.Is(err, ErrInvalidToken) || errors.Is(err, ErrInvalidPassword) {
+// authenticate authenticates the identity from the request.
+func authenticate(r *http.Request) (*domain.Identity, error) {
+	identity, err := parseAuthHdr(r)
+	if err != nil || identity == nil {
+		if errors.Is(err, ErrInvalidToken) {
 			return nil, err
 		}
 		return nil, domain.ErrUserNotFound
 	}
 
-	return user, nil
-}
-
-// ErrInvalidPassword is returned when the password is invalid.
-var ErrInvalidPassword = errors.New("invalid password")
-
-func parseUsernamePassword(ctx context.Context, username, password string) (*domain.User, error) {
-	logger := log.FromContext(ctx)
-	be := backend.FromContext(ctx)
-
-	if username != "" && password != "" {
-		user, err := be.User(ctx, username)
-		if err == nil && user != nil && backend.VerifyPassword(password, user.Password) {
-			return user, nil
-		}
-
-		// Try to authenticate using access token as the password
-		user, err = be.UserByAccessToken(ctx, password)
-		if err == nil {
-			return user, nil
-		}
-
-		logger.Error("invalid password or token", "username", username, "err", err)
-		return nil, ErrInvalidPassword
-	} else if username != "" {
-		// Try to authenticate using access token as the username
-		logger.Debug("trying to authenticate using access token as username", "username", username)
-		user, err := be.UserByAccessToken(ctx, username)
-		if err == nil {
-			return user, nil
-		}
-
-		logger.Error("failed to get user", "err", err)
-		return nil, ErrInvalidToken
-	}
-
-	return nil, domain.ErrUserNotFound
+	return identity, nil
 }
 
 // ErrInvalidHeader is returned when the authorization header is invalid.
 var ErrInvalidHeader = errors.New("invalid authorization header")
 
-func parseAuthHdr(r *http.Request) (*domain.User, error) {
-	// Check for auth header
+func parseAuthHdr(r *http.Request) (*domain.Identity, error) {
 	header := r.Header.Get("Authorization")
 	if header == "" {
 		return nil, ErrInvalidHeader
@@ -87,47 +48,33 @@ func parseAuthHdr(r *http.Request) (*domain.User, error) {
 	}
 
 	switch strings.ToLower(parts[0]) {
-	case "token":
-		user, err := be.UserByAccessToken(ctx, parts[1])
-		if err != nil {
-			logger.Error("failed to get user", "err", err)
-			return nil, err
-		}
-
-		return user, nil
 	case "bearer":
 		claims, err := parseJWT(ctx, parts[1])
 		if err != nil {
 			return nil, err
 		}
 
-		// Find the user
-		parts := strings.SplitN(claims.Subject, "#", 2)
-		if len(parts) != 2 {
+		// Subject format: "username#identityID"
+		subParts := strings.SplitN(claims.Subject, "#", 2)
+		if len(subParts) != 2 {
 			logger.Error("invalid jwt subject", "subject", claims.Subject)
 			return nil, errors.New("invalid jwt subject")
 		}
 
-		user, err := be.User(ctx, parts[0])
+		identity, err := be.IdentityByUsername(ctx, subParts[0])
 		if err != nil {
-			logger.Error("failed to get user", "err", err)
+			logger.Error("failed to get identity", "err", err)
 			return nil, err
 		}
 
-		expectedSubject := fmt.Sprintf("%s#%d", user.Username, user.ID)
-		if expectedSubject != claims.Subject {
-			logger.Error("invalid jwt subject", "subject", claims.Subject, "expected", expectedSubject)
+		if identity.ID != subParts[1] {
+			logger.Error("invalid jwt subject: identity ID mismatch", "subject", claims.Subject)
 			return nil, errors.New("invalid jwt subject")
 		}
 
-		return user, nil
+		return identity, nil
 	default:
-		username, password, ok := r.BasicAuth()
-		if !ok {
-			return nil, ErrInvalidHeader
-		}
-
-		return parseUsernamePassword(ctx, username, password)
+		return nil, ErrInvalidHeader
 	}
 }
 

@@ -456,24 +456,24 @@ func serviceLfsLocksCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user := domain.UserFromContext(ctx)
-	if user == nil {
-		logger.Error("error getting user from context")
+	identity := domain.IdentityFromContext(ctx)
+	if identity == nil {
+		logger.Error("error getting identity from context")
 		renderJSON(w, http.StatusNotFound, lfs.ErrorResponse{
-			Message: "user not found",
+			Message: "identity not found",
 		})
 		return
 	}
 
 	datastore := domain.StoreFromContext(ctx)
-	if err := datastore.CreateLFSLockForUser(ctx, repo.ID, user.ID, req.Path, req.Ref.Name); err != nil {
+	if err := datastore.CreateLFSLockForIdentity(ctx, repo.ID, identity.ID, req.Path, req.Ref.Name); err != nil {
 		if errors.Is(err, domain.ErrAlreadyExists) {
 			errResp := lfs.LockResponse{
 				ErrorResponse: lfs.ErrorResponse{
 					Message: "lock already exists",
 				},
 			}
-			lock, err := datastore.GetLFSLockForUserPath(ctx, repo.ID, user.ID, req.Path)
+			lock, err := datastore.GetLFSLockForIdentityPath(ctx, repo.ID, identity.ID, req.Path)
 			if err == nil {
 				errResp.Lock = lfs.Lock{
 					ID:       strconv.FormatInt(lock.ID, 10),
@@ -481,10 +481,10 @@ func serviceLfsLocksCreate(w http.ResponseWriter, r *http.Request) {
 					LockedAt: lock.CreatedAt,
 				}
 				lockOwner := lfs.Owner{
-					Name: user.Username,
+					Name: identity.Username,
 				}
-				if lock.UserID != user.ID {
-					owner, err := datastore.GetUserByID(ctx, lock.UserID)
+				if lock.IdentityID != identity.ID {
+					owner, err := datastore.GetIdentityByID(ctx, lock.IdentityID)
 					if err != nil {
 						logger.Error("error getting lock owner", "err", err)
 						renderJSON(w, http.StatusInternalServerError, lfs.ErrorResponse{
@@ -506,7 +506,7 @@ func serviceLfsLocksCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	lock, err := datastore.GetLFSLockForUserPath(ctx, repo.ID, user.ID, req.Path)
+	lock, err := datastore.GetLFSLockForIdentityPath(ctx, repo.ID, identity.ID, req.Path)
 	if err != nil {
 		logger.Error("error getting lock", "err", err)
 		renderJSON(w, http.StatusInternalServerError, lfs.ErrorResponse{
@@ -521,7 +521,7 @@ func serviceLfsLocksCreate(w http.ResponseWriter, r *http.Request) {
 			Path:     lock.Path,
 			LockedAt: lock.CreatedAt,
 			Owner: lfs.Owner{
-				Name: user.Username,
+				Name: identity.Username,
 			},
 		},
 	})
@@ -591,7 +591,7 @@ func serviceLfsLocksGet(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		owner, err := datastore.GetUserByID(ctx, lock.UserID)
+		owner, err := datastore.GetIdentityByID(ctx, lock.IdentityID)
 		if err != nil {
 			logger.Error("error getting lock owner", "err", err)
 			renderJSON(w, http.StatusInternalServerError, lfs.ErrorResponse{
@@ -629,7 +629,7 @@ func serviceLfsLocksGet(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		owner, err := datastore.GetUserByID(ctx, lock.UserID)
+		owner, err := datastore.GetIdentityByID(ctx, lock.IdentityID)
 		if err != nil {
 			logger.Error("error getting lock owner", "err", err)
 			renderJSON(w, http.StatusInternalServerError, lfs.ErrorResponse{
@@ -663,11 +663,11 @@ func serviceLfsLocksGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	lockList := make([]lfs.Lock, len(locks))
-	users := map[int64]*domain.User{}
+	identities := map[string]*domain.Identity{}
 	for i, lock := range locks {
-		owner, ok := users[lock.UserID]
+		owner, ok := identities[lock.IdentityID]
 		if !ok {
-			owner, err = datastore.GetUserByID(ctx, lock.UserID)
+			owner, err = datastore.GetIdentityByID(ctx, lock.IdentityID)
 			if err != nil {
 				logger.Error("error getting lock owner", "err", err)
 				renderJSON(w, http.StatusInternalServerError, lfs.ErrorResponse{
@@ -675,7 +675,7 @@ func serviceLfsLocksGet(w http.ResponseWriter, r *http.Request) {
 				})
 				return
 			}
-			users[lock.UserID] = owner
+			identities[lock.IdentityID] = owner
 		}
 
 		lockList[i] = lfs.Lock{
@@ -737,7 +737,7 @@ func serviceLfsLocksVerify(w http.ResponseWriter, r *http.Request) {
 	}
 
 	datastore := domain.StoreFromContext(ctx)
-	user := domain.UserFromContext(ctx)
+	identity := domain.IdentityFromContext(ctx)
 	ours := make([]lfs.Lock, 0)
 	theirs := make([]lfs.Lock, 0)
 
@@ -751,11 +751,11 @@ func serviceLfsLocksVerify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	users := map[int64]*domain.User{}
+	identities := map[string]*domain.Identity{}
 	for _, lock := range locks {
-		owner, ok := users[lock.UserID]
+		owner, ok := identities[lock.IdentityID]
 		if !ok {
-			owner, err = datastore.GetUserByID(ctx, lock.UserID)
+			owner, err = datastore.GetIdentityByID(ctx, lock.IdentityID)
 			if err != nil {
 				logger.Error("error getting lock owner", "err", err)
 				renderJSON(w, http.StatusInternalServerError, lfs.ErrorResponse{
@@ -763,7 +763,7 @@ func serviceLfsLocksVerify(w http.ResponseWriter, r *http.Request) {
 				})
 				return
 			}
-			users[lock.UserID] = owner
+			identities[lock.IdentityID] = owner
 		}
 
 		l := lfs.Lock{
@@ -775,7 +775,7 @@ func serviceLfsLocksVerify(w http.ResponseWriter, r *http.Request) {
 			},
 		}
 
-		if user != nil && user.ID == lock.UserID {
+		if identity != nil && identity.ID == lock.IdentityID {
 			ours = append(ours, l)
 		} else {
 			theirs = append(theirs, l)
@@ -846,7 +846,7 @@ func serviceLfsLocksDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	owner, err := datastore.GetUserByID(ctx, lock.UserID)
+	owner, err := datastore.GetIdentityByID(ctx, lock.IdentityID)
 	if err != nil {
 		logger.Error("error getting lock owner", "err", err)
 		renderJSON(w, http.StatusInternalServerError, lfs.ErrorResponse{
@@ -864,9 +864,9 @@ func serviceLfsLocksDelete(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	user := domain.UserFromContext(ctx)
-	if user == nil {
-		logger.Error("error getting user from context")
+	identity := domain.IdentityFromContext(ctx)
+	if identity == nil {
+		logger.Error("error getting identity from context")
 		renderJSON(w, http.StatusUnauthorized, lfs.ErrorResponse{
 			Message: "unauthorized",
 		})
@@ -874,8 +874,8 @@ func serviceLfsLocksDelete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.Force {
-		if !user.Admin {
-			logger.Error("non-admin user attempted force delete", "user", user.Username)
+		if !identity.IsAdmin {
+			logger.Error("non-admin identity attempted force delete", "username", identity.Username)
 			renderJSON(w, http.StatusForbidden, lfs.ErrorResponse{
 				Message: "admin access required for force delete",
 			})
@@ -894,8 +894,8 @@ func serviceLfsLocksDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if owner.ID != user.ID {
-		logger.Error("error deleting another user's lock")
+	if owner.ID != identity.ID {
+		logger.Error("error deleting another identity's lock")
 		renderJSON(w, http.StatusForbidden, lfs.ErrorResponse{
 			Message: "lock belongs to another user",
 		})
