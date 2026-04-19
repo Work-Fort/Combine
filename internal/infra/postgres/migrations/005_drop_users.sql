@@ -55,3 +55,15 @@ CREATE TABLE IF NOT EXISTS access_tokens (
   ON DELETE CASCADE
   ON UPDATE CASCADE
 );
+
+-- Reverse FK column changes on repos, lfs_locks, collabs
+ALTER TABLE repos DROP COLUMN IF EXISTS identity_id;
+ALTER TABLE repos ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+
+ALTER TABLE lfs_locks DROP COLUMN IF EXISTS identity_id;
+ALTER TABLE lfs_locks ADD COLUMN user_id INTEGER NOT NULL DEFAULT 0;
+
+ALTER TABLE collabs DROP CONSTRAINT IF EXISTS collabs_identity_id_repo_id_key;
+ALTER TABLE collabs DROP COLUMN IF EXISTS identity_id;
+ALTER TABLE collabs ADD COLUMN user_id INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE collabs ADD CONSTRAINT collabs_user_id_repo_id_key UNIQUE (user_id, repo_id);
