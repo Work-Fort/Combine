@@ -10,7 +10,7 @@ import (
 
 func scanRepo(row interface{ Scan(dest ...any) error }) (*domain.Repo, error) {
 	var r domain.Repo
-	var userID sql.NullInt64
+	var identityID sql.NullString
 	if err := row.Scan(
 		&r.ID,
 		&r.Name,
@@ -19,15 +19,15 @@ func scanRepo(row interface{ Scan(dest ...any) error }) (*domain.Repo, error) {
 		&r.Private,
 		&r.Mirror,
 		&r.Hidden,
-		&userID,
+		&identityID,
 		&r.CreatedAt,
 		&r.UpdatedAt,
 	); err != nil {
 		return nil, err
 	}
-	if userID.Valid {
-		v := userID.Int64
-		r.UserID = &v
+	if identityID.Valid {
+		v := identityID.String
+		r.IdentityID = &v
 	}
 	return &r, nil
 }
@@ -44,7 +44,7 @@ func scanRepos(rows *sql.Rows) ([]*domain.Repo, error) {
 	return repos, rows.Err()
 }
 
-const repoColumns = `id, name, project_name, description, private, mirror, hidden, user_id, created_at, updated_at`
+const repoColumns = `id, name, project_name, description, private, mirror, hidden, identity_id, created_at, updated_at`
 
 func getRepoByName(ctx context.Context, q querier, name string) (*domain.Repo, error) {
 	row := q.QueryRowContext(ctx, `SELECT `+repoColumns+` FROM repos WHERE name = ?`, name)
@@ -64,8 +64,8 @@ func listRepos(ctx context.Context, q querier) ([]*domain.Repo, error) {
 	return scanRepos(rows)
 }
 
-func listReposByUserID(ctx context.Context, q querier, userID int64) ([]*domain.Repo, error) {
-	rows, err := q.QueryContext(ctx, `SELECT `+repoColumns+` FROM repos WHERE user_id = ?`, userID)
+func listReposByIdentityID(ctx context.Context, q querier, identityID string) ([]*domain.Repo, error) {
+	rows, err := q.QueryContext(ctx, `SELECT `+repoColumns+` FROM repos WHERE identity_id = ?`, identityID)
 	if err != nil {
 		return nil, err
 	}
@@ -76,11 +76,11 @@ func listReposByUserID(ctx context.Context, q querier, userID int64) ([]*domain.
 func createRepo(ctx context.Context, q querier, repo *domain.Repo) error {
 	var res sql.Result
 	var err error
-	if repo.UserID != nil {
+	if repo.IdentityID != nil {
 		res, err = q.ExecContext(ctx,
-			`INSERT INTO repos (name, project_name, description, private, mirror, hidden, user_id, updated_at)
+			`INSERT INTO repos (name, project_name, description, private, mirror, hidden, identity_id, updated_at)
 			 VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
-			repo.Name, repo.ProjectName, repo.Description, repo.Private, repo.Mirror, repo.Hidden, *repo.UserID,
+			repo.Name, repo.ProjectName, repo.Description, repo.Private, repo.Mirror, repo.Hidden, *repo.IdentityID,
 		)
 	} else {
 		res, err = q.ExecContext(ctx,
@@ -102,9 +102,9 @@ func createRepo(ctx context.Context, q querier, repo *domain.Repo) error {
 
 func updateRepo(ctx context.Context, q querier, repo *domain.Repo) error {
 	_, err := q.ExecContext(ctx,
-		`UPDATE repos SET name = ?, project_name = ?, description = ?, private = ?, mirror = ?, hidden = ?, user_id = ?, updated_at = CURRENT_TIMESTAMP
+		`UPDATE repos SET name = ?, project_name = ?, description = ?, private = ?, mirror = ?, hidden = ?, identity_id = ?, updated_at = CURRENT_TIMESTAMP
 		 WHERE id = ?`,
-		repo.Name, repo.ProjectName, repo.Description, repo.Private, repo.Mirror, repo.Hidden, repo.UserID, repo.ID,
+		repo.Name, repo.ProjectName, repo.Description, repo.Private, repo.Mirror, repo.Hidden, repo.IdentityID, repo.ID,
 	)
 	return err
 }
@@ -124,8 +124,8 @@ func (s *Store) ListRepos(ctx context.Context) ([]*domain.Repo, error) {
 	return listRepos(ctx, s.q())
 }
 
-func (s *Store) ListReposByUserID(ctx context.Context, userID int64) ([]*domain.Repo, error) {
-	return listReposByUserID(ctx, s.q(), userID)
+func (s *Store) ListReposByIdentityID(ctx context.Context, identityID string) ([]*domain.Repo, error) {
+	return listReposByIdentityID(ctx, s.q(), identityID)
 }
 
 func (s *Store) CreateRepo(ctx context.Context, repo *domain.Repo) error {
@@ -150,8 +150,8 @@ func (ts *txStore) ListRepos(ctx context.Context) ([]*domain.Repo, error) {
 	return listRepos(ctx, ts.q())
 }
 
-func (ts *txStore) ListReposByUserID(ctx context.Context, userID int64) ([]*domain.Repo, error) {
-	return listReposByUserID(ctx, ts.q(), userID)
+func (ts *txStore) ListReposByIdentityID(ctx context.Context, identityID string) ([]*domain.Repo, error) {
+	return listReposByIdentityID(ctx, ts.q(), identityID)
 }
 
 func (ts *txStore) CreateRepo(ctx context.Context, repo *domain.Repo) error {

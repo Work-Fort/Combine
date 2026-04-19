@@ -100,80 +100,6 @@ func TestRepoStore(t *testing.T) {
 	}
 }
 
-func TestUserStore(t *testing.T) {
-	s := mustOpen(t)
-	ctx := context.Background()
-
-	// Create
-	if err := s.CreateUser(ctx, "alice", true, nil); err != nil {
-		t.Fatalf("CreateUser: %v", err)
-	}
-
-	// Get by username
-	u, err := s.GetUserByUsername(ctx, "alice")
-	if err != nil {
-		t.Fatalf("GetUserByUsername: %v", err)
-	}
-	if u.Username != "alice" {
-		t.Errorf("Username = %q, want %q", u.Username, "alice")
-	}
-	if !u.Admin {
-		t.Error("expected Admin = true")
-	}
-
-	// Get by ID
-	u2, err := s.GetUserByID(ctx, u.ID)
-	if err != nil {
-		t.Fatalf("GetUserByID: %v", err)
-	}
-	if u2.Username != "alice" {
-		t.Errorf("Username = %q, want %q", u2.Username, "alice")
-	}
-
-	// Not found
-	_, err = s.GetUserByUsername(ctx, "nonexistent")
-	if !errors.Is(err, domain.ErrUserNotFound) {
-		t.Errorf("expected ErrUserNotFound, got: %v", err)
-	}
-
-	// List
-	users, err := s.ListUsers(ctx)
-	if err != nil {
-		t.Fatalf("ListUsers: %v", err)
-	}
-	if len(users) != 1 {
-		t.Errorf("ListUsers returned %d users, want 1", len(users))
-	}
-
-	// Update
-	u.Admin = false
-	if err := s.UpdateUser(ctx, u); err != nil {
-		t.Fatalf("UpdateUser: %v", err)
-	}
-	u3, _ := s.GetUserByID(ctx, u.ID)
-	if u3.Admin {
-		t.Error("expected Admin = false after update")
-	}
-
-	// Password
-	if err := s.SetUserPassword(ctx, u.ID, "secret"); err != nil {
-		t.Fatalf("SetUserPassword: %v", err)
-	}
-	u4, _ := s.GetUserByID(ctx, u.ID)
-	if u4.Password != "secret" {
-		t.Errorf("Password = %q, want %q", u4.Password, "secret")
-	}
-
-	// Delete
-	if err := s.DeleteUserByUsername(ctx, "alice"); err != nil {
-		t.Fatalf("DeleteUserByUsername: %v", err)
-	}
-	users, _ = s.ListUsers(ctx)
-	if len(users) != 0 {
-		t.Errorf("ListUsers returned %d users after delete, want 0", len(users))
-	}
-}
-
 func TestIdentityStore(t *testing.T) {
 	s := mustOpen(t)
 	ctx := context.Background()
@@ -294,9 +220,10 @@ func TestCollabStore(t *testing.T) {
 	s := mustOpen(t)
 	ctx := context.Background()
 
-	// Setup: create user and repo
-	if err := s.CreateUser(ctx, "bob", false, nil); err != nil {
-		t.Fatalf("CreateUser: %v", err)
+	// Setup: create identity and repo
+	identity, err := s.UpsertIdentity(ctx, "uuid-bob", "bob", "Bob", "user")
+	if err != nil {
+		t.Fatalf("UpsertIdentity: %v", err)
 	}
 	repo := &domain.Repo{Name: "collab-repo"}
 	if err := s.CreateRepo(ctx, repo); err != nil {
@@ -304,14 +231,14 @@ func TestCollabStore(t *testing.T) {
 	}
 
 	// Add
-	if err := s.AddCollabByUsernameAndRepo(ctx, "bob", "collab-repo", domain.ReadWriteAccess); err != nil {
-		t.Fatalf("AddCollabByUsernameAndRepo: %v", err)
+	if err := s.AddCollabByIdentityAndRepo(ctx, identity.ID, "collab-repo", domain.ReadWriteAccess); err != nil {
+		t.Fatalf("AddCollabByIdentityAndRepo: %v", err)
 	}
 
 	// Get
-	c, err := s.GetCollabByUsernameAndRepo(ctx, "bob", "collab-repo")
+	c, err := s.GetCollabByIdentityAndRepo(ctx, identity.ID, "collab-repo")
 	if err != nil {
-		t.Fatalf("GetCollabByUsernameAndRepo: %v", err)
+		t.Fatalf("GetCollabByIdentityAndRepo: %v", err)
 	}
 	if c.AccessLevel != domain.ReadWriteAccess {
 		t.Errorf("AccessLevel = %v, want %v", c.AccessLevel, domain.ReadWriteAccess)
@@ -326,24 +253,24 @@ func TestCollabStore(t *testing.T) {
 		t.Errorf("ListCollabsByRepo returned %d, want 1", len(collabs))
 	}
 
-	// List as users
-	users, err := s.ListCollabsByRepoAsUsers(ctx, "collab-repo")
+	// List as identities
+	identities, err := s.ListCollabsByRepoAsIdentities(ctx, "collab-repo")
 	if err != nil {
-		t.Fatalf("ListCollabsByRepoAsUsers: %v", err)
+		t.Fatalf("ListCollabsByRepoAsIdentities: %v", err)
 	}
-	if len(users) != 1 || users[0].Username != "bob" {
-		t.Errorf("unexpected users: %v", users)
+	if len(identities) != 1 || identities[0].Username != "bob" {
+		t.Errorf("unexpected identities: %v", identities)
 	}
 
 	// Duplicate
-	err = s.AddCollabByUsernameAndRepo(ctx, "bob", "collab-repo", domain.ReadOnlyAccess)
+	err = s.AddCollabByIdentityAndRepo(ctx, identity.ID, "collab-repo", domain.ReadOnlyAccess)
 	if !errors.Is(err, domain.ErrCollaboratorExist) {
 		t.Errorf("expected ErrCollaboratorExist, got: %v", err)
 	}
 
 	// Remove
-	if err := s.RemoveCollabByUsernameAndRepo(ctx, "bob", "collab-repo"); err != nil {
-		t.Fatalf("RemoveCollabByUsernameAndRepo: %v", err)
+	if err := s.RemoveCollabByIdentityAndRepo(ctx, identity.ID, "collab-repo"); err != nil {
+		t.Fatalf("RemoveCollabByIdentityAndRepo: %v", err)
 	}
 	collabs, _ = s.ListCollabsByRepo(ctx, "collab-repo")
 	if len(collabs) != 0 {
@@ -398,23 +325,24 @@ func TestTransaction(t *testing.T) {
 
 	// Successful transaction
 	err := s.Transaction(ctx, func(tx domain.Store) error {
-		return tx.CreateUser(ctx, "txuser", false, nil)
+		_, err := tx.UpsertIdentity(ctx, "uuid-tx", "txuser", "TX User", "user")
+		return err
 	})
 	if err != nil {
 		t.Fatalf("Transaction (success): %v", err)
 	}
-	u, err := s.GetUserByUsername(ctx, "txuser")
+	id, err := s.GetIdentityByID(ctx, "uuid-tx")
 	if err != nil {
-		t.Fatalf("user not found after committed tx: %v", err)
+		t.Fatalf("identity not found after committed tx: %v", err)
 	}
-	if u.Username != "txuser" {
-		t.Errorf("Username = %q, want %q", u.Username, "txuser")
+	if id.Username != "txuser" {
+		t.Errorf("Username = %q, want %q", id.Username, "txuser")
 	}
 
 	// Rolled-back transaction
 	testErr := errors.New("rollback me")
 	err = s.Transaction(ctx, func(tx domain.Store) error {
-		if err := tx.CreateUser(ctx, "rollbackuser", false, nil); err != nil {
+		if _, err := tx.UpsertIdentity(ctx, "uuid-rollback", "rollbackuser", "Rollback User", "user"); err != nil {
 			return err
 		}
 		return testErr
@@ -422,8 +350,8 @@ func TestTransaction(t *testing.T) {
 	if !errors.Is(err, testErr) {
 		t.Errorf("expected testErr, got: %v", err)
 	}
-	_, err = s.GetUserByUsername(ctx, "rollbackuser")
-	if !errors.Is(err, domain.ErrUserNotFound) {
-		t.Errorf("expected ErrUserNotFound for rolled-back user, got: %v", err)
+	_, err = s.GetIdentityByID(ctx, "uuid-rollback")
+	if err == nil {
+		t.Error("expected error for rolled-back identity, got nil")
 	}
 }

@@ -34,7 +34,7 @@ const lfsObjectColumns = `id, oid, size, repo_id, created_at, updated_at`
 func scanLFSLock(row interface{ Scan(dest ...any) error }) (*domain.LFSLock, error) {
 	var l domain.LFSLock
 	var refname sql.NullString
-	if err := row.Scan(&l.ID, &l.RepoID, &l.UserID, &l.Path, &refname, &l.CreatedAt, &l.UpdatedAt); err != nil {
+	if err := row.Scan(&l.ID, &l.RepoID, &l.IdentityID, &l.Path, &refname, &l.CreatedAt, &l.UpdatedAt); err != nil {
 		return nil, err
 	}
 	if refname.Valid {
@@ -55,7 +55,7 @@ func scanLFSLocks(rows *sql.Rows) ([]*domain.LFSLock, error) {
 	return locks, rows.Err()
 }
 
-const lfsLockColumns = `id, repo_id, user_id, path, refname, created_at, updated_at`
+const lfsLockColumns = `id, repo_id, identity_id, path, refname, created_at, updated_at`
 
 func sanitizePath(path string) string {
 	path = strings.TrimSpace(path)
@@ -114,11 +114,11 @@ func deleteLFSObjectByOid(ctx context.Context, q querier, repoID int64, oid stri
 
 // --- LFS Locks ---
 
-func createLFSLockForUser(ctx context.Context, q querier, repoID, userID int64, path, refname string) error {
+func createLFSLockForIdentity(ctx context.Context, q querier, repoID int64, identityID, path, refname string) error {
 	path = sanitizePath(path)
 	_, err := q.ExecContext(ctx,
-		`INSERT INTO lfs_locks (repo_id, user_id, path, refname, updated_at) VALUES ($1, $2, $3, $4, NOW())`,
-		repoID, userID, path, refname)
+		`INSERT INTO lfs_locks (repo_id, identity_id, path, refname, updated_at) VALUES ($1, $2, $3, $4, NOW())`,
+		repoID, identityID, path, refname)
 	if err != nil && isUniqueViolation(err) {
 		return fmt.Errorf("%w: path %q", domain.ErrAlreadyExists, path)
 	}
@@ -152,9 +152,9 @@ func listLFSLocksWithCount(ctx context.Context, q querier, repoID int64, page, l
 	return locks, count, nil
 }
 
-func listLFSLocksForUser(ctx context.Context, q querier, repoID, userID int64) ([]*domain.LFSLock, error) {
+func listLFSLocksForIdentity(ctx context.Context, q querier, repoID int64, identityID string) ([]*domain.LFSLock, error) {
 	rows, err := q.QueryContext(ctx,
-		`SELECT `+lfsLockColumns+` FROM lfs_locks WHERE repo_id = $1 AND user_id = $2`, repoID, userID)
+		`SELECT `+lfsLockColumns+` FROM lfs_locks WHERE repo_id = $1 AND identity_id = $2`, repoID, identityID)
 	if err != nil {
 		return nil, err
 	}
@@ -173,11 +173,11 @@ func getLFSLockForPath(ctx context.Context, q querier, repoID int64, path string
 	return l, err
 }
 
-func getLFSLockForUserPath(ctx context.Context, q querier, repoID, userID int64, path string) (*domain.LFSLock, error) {
+func getLFSLockForIdentityPath(ctx context.Context, q querier, repoID int64, identityID, path string) (*domain.LFSLock, error) {
 	path = sanitizePath(path)
 	row := q.QueryRowContext(ctx,
-		`SELECT `+lfsLockColumns+` FROM lfs_locks WHERE repo_id = $1 AND user_id = $2 AND path = $3`,
-		repoID, userID, path)
+		`SELECT `+lfsLockColumns+` FROM lfs_locks WHERE repo_id = $1 AND identity_id = $2 AND path = $3`,
+		repoID, identityID, path)
 	l, err := scanLFSLock(row)
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("%w: path %q", domain.ErrNotFound, path)
@@ -195,10 +195,10 @@ func getLFSLockByID(ctx context.Context, q querier, id int64) (*domain.LFSLock, 
 	return l, err
 }
 
-func getLFSLockForUserByID(ctx context.Context, q querier, repoID, userID, id int64) (*domain.LFSLock, error) {
+func getLFSLockForIdentityByID(ctx context.Context, q querier, repoID int64, identityID string, id int64) (*domain.LFSLock, error) {
 	row := q.QueryRowContext(ctx,
-		`SELECT `+lfsLockColumns+` FROM lfs_locks WHERE id = $1 AND user_id = $2 AND repo_id = $3`,
-		id, userID, repoID)
+		`SELECT `+lfsLockColumns+` FROM lfs_locks WHERE id = $1 AND identity_id = $2 AND repo_id = $3`,
+		id, identityID, repoID)
 	l, err := scanLFSLock(row)
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("%w: lock id %d", domain.ErrNotFound, id)
@@ -211,8 +211,8 @@ func deleteLFSLock(ctx context.Context, q querier, repoID, id int64) error {
 	return err
 }
 
-func deleteLFSLockForUserByID(ctx context.Context, q querier, repoID, userID, id int64) error {
-	_, err := q.ExecContext(ctx, `DELETE FROM lfs_locks WHERE repo_id = $1 AND user_id = $2 AND id = $3`, repoID, userID, id)
+func deleteLFSLockForIdentityByID(ctx context.Context, q querier, repoID int64, identityID string, id int64) error {
+	_, err := q.ExecContext(ctx, `DELETE FROM lfs_locks WHERE repo_id = $1 AND identity_id = $2 AND id = $3`, repoID, identityID, id)
 	return err
 }
 
@@ -238,8 +238,8 @@ func (s *Store) DeleteLFSObjectByOid(ctx context.Context, repoID int64, oid stri
 	return deleteLFSObjectByOid(ctx, s.q(), repoID, oid)
 }
 
-func (s *Store) CreateLFSLockForUser(ctx context.Context, repoID, userID int64, path, refname string) error {
-	return createLFSLockForUser(ctx, s.q(), repoID, userID, path, refname)
+func (s *Store) CreateLFSLockForIdentity(ctx context.Context, repoID int64, identityID, path, refname string) error {
+	return createLFSLockForIdentity(ctx, s.q(), repoID, identityID, path, refname)
 }
 
 func (s *Store) ListLFSLocks(ctx context.Context, repoID int64, page, limit int) ([]*domain.LFSLock, error) {
@@ -250,32 +250,32 @@ func (s *Store) ListLFSLocksWithCount(ctx context.Context, repoID int64, page, l
 	return listLFSLocksWithCount(ctx, s.q(), repoID, page, limit)
 }
 
-func (s *Store) ListLFSLocksForUser(ctx context.Context, repoID, userID int64) ([]*domain.LFSLock, error) {
-	return listLFSLocksForUser(ctx, s.q(), repoID, userID)
+func (s *Store) ListLFSLocksForIdentity(ctx context.Context, repoID int64, identityID string) ([]*domain.LFSLock, error) {
+	return listLFSLocksForIdentity(ctx, s.q(), repoID, identityID)
 }
 
 func (s *Store) GetLFSLockForPath(ctx context.Context, repoID int64, path string) (*domain.LFSLock, error) {
 	return getLFSLockForPath(ctx, s.q(), repoID, path)
 }
 
-func (s *Store) GetLFSLockForUserPath(ctx context.Context, repoID, userID int64, path string) (*domain.LFSLock, error) {
-	return getLFSLockForUserPath(ctx, s.q(), repoID, userID, path)
+func (s *Store) GetLFSLockForIdentityPath(ctx context.Context, repoID int64, identityID, path string) (*domain.LFSLock, error) {
+	return getLFSLockForIdentityPath(ctx, s.q(), repoID, identityID, path)
 }
 
 func (s *Store) GetLFSLockByID(ctx context.Context, id int64) (*domain.LFSLock, error) {
 	return getLFSLockByID(ctx, s.q(), id)
 }
 
-func (s *Store) GetLFSLockForUserByID(ctx context.Context, repoID, userID, id int64) (*domain.LFSLock, error) {
-	return getLFSLockForUserByID(ctx, s.q(), repoID, userID, id)
+func (s *Store) GetLFSLockForIdentityByID(ctx context.Context, repoID int64, identityID string, id int64) (*domain.LFSLock, error) {
+	return getLFSLockForIdentityByID(ctx, s.q(), repoID, identityID, id)
 }
 
 func (s *Store) DeleteLFSLock(ctx context.Context, repoID, id int64) error {
 	return deleteLFSLock(ctx, s.q(), repoID, id)
 }
 
-func (s *Store) DeleteLFSLockForUserByID(ctx context.Context, repoID, userID, id int64) error {
-	return deleteLFSLockForUserByID(ctx, s.q(), repoID, userID, id)
+func (s *Store) DeleteLFSLockForIdentityByID(ctx context.Context, repoID int64, identityID string, id int64) error {
+	return deleteLFSLockForIdentityByID(ctx, s.q(), repoID, identityID, id)
 }
 
 // txStore methods.
@@ -300,8 +300,8 @@ func (ts *txStore) DeleteLFSObjectByOid(ctx context.Context, repoID int64, oid s
 	return deleteLFSObjectByOid(ctx, ts.q(), repoID, oid)
 }
 
-func (ts *txStore) CreateLFSLockForUser(ctx context.Context, repoID, userID int64, path, refname string) error {
-	return createLFSLockForUser(ctx, ts.q(), repoID, userID, path, refname)
+func (ts *txStore) CreateLFSLockForIdentity(ctx context.Context, repoID int64, identityID, path, refname string) error {
+	return createLFSLockForIdentity(ctx, ts.q(), repoID, identityID, path, refname)
 }
 
 func (ts *txStore) ListLFSLocks(ctx context.Context, repoID int64, page, limit int) ([]*domain.LFSLock, error) {
@@ -312,30 +312,30 @@ func (ts *txStore) ListLFSLocksWithCount(ctx context.Context, repoID int64, page
 	return listLFSLocksWithCount(ctx, ts.q(), repoID, page, limit)
 }
 
-func (ts *txStore) ListLFSLocksForUser(ctx context.Context, repoID, userID int64) ([]*domain.LFSLock, error) {
-	return listLFSLocksForUser(ctx, ts.q(), repoID, userID)
+func (ts *txStore) ListLFSLocksForIdentity(ctx context.Context, repoID int64, identityID string) ([]*domain.LFSLock, error) {
+	return listLFSLocksForIdentity(ctx, ts.q(), repoID, identityID)
 }
 
 func (ts *txStore) GetLFSLockForPath(ctx context.Context, repoID int64, path string) (*domain.LFSLock, error) {
 	return getLFSLockForPath(ctx, ts.q(), repoID, path)
 }
 
-func (ts *txStore) GetLFSLockForUserPath(ctx context.Context, repoID, userID int64, path string) (*domain.LFSLock, error) {
-	return getLFSLockForUserPath(ctx, ts.q(), repoID, userID, path)
+func (ts *txStore) GetLFSLockForIdentityPath(ctx context.Context, repoID int64, identityID, path string) (*domain.LFSLock, error) {
+	return getLFSLockForIdentityPath(ctx, ts.q(), repoID, identityID, path)
 }
 
 func (ts *txStore) GetLFSLockByID(ctx context.Context, id int64) (*domain.LFSLock, error) {
 	return getLFSLockByID(ctx, ts.q(), id)
 }
 
-func (ts *txStore) GetLFSLockForUserByID(ctx context.Context, repoID, userID, id int64) (*domain.LFSLock, error) {
-	return getLFSLockForUserByID(ctx, ts.q(), repoID, userID, id)
+func (ts *txStore) GetLFSLockForIdentityByID(ctx context.Context, repoID int64, identityID string, id int64) (*domain.LFSLock, error) {
+	return getLFSLockForIdentityByID(ctx, ts.q(), repoID, identityID, id)
 }
 
 func (ts *txStore) DeleteLFSLock(ctx context.Context, repoID, id int64) error {
 	return deleteLFSLock(ctx, ts.q(), repoID, id)
 }
 
-func (ts *txStore) DeleteLFSLockForUserByID(ctx context.Context, repoID, userID, id int64) error {
-	return deleteLFSLockForUserByID(ctx, ts.q(), repoID, userID, id)
+func (ts *txStore) DeleteLFSLockForIdentityByID(ctx context.Context, repoID int64, identityID string, id int64) error {
+	return deleteLFSLockForIdentityByID(ctx, ts.q(), repoID, identityID, id)
 }
