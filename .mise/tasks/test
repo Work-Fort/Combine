@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+#MISE description="Run unit tests with race detection and coverage"
+set -euo pipefail
+
+BUILD_DIR=build
+mkdir -p "$BUILD_DIR"
+
+go test -v -race -coverprofile="$BUILD_DIR/coverage.out" ./...
