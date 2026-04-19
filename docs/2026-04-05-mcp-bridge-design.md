@@ -34,13 +34,13 @@ pattern established by other WorkFort services.
 ## Configuration
 
 ```
-combine mcp-bridge --server-url http://localhost:23235 --token <passport-api-key>
+combine mcp-bridge --server-url http://localhost:23235 --api-key <passport-api-key>
 ```
 
 | Flag | Env var | Default | Description |
 |------|---------|---------|-------------|
 | `--server-url` | `COMBINE_SERVER_URL` | `http://localhost:23235` | Combine HTTP base URL |
-| `--token` | `COMBINE_TOKEN` | (required) | Passport agent API key |
+| `--api-key` | `COMBINE_API_KEY` | (required) | Passport agent API key |
 
 The bridge reads these via Viper, consistent with Combine's config pattern.
 
@@ -130,14 +130,14 @@ The bridge uses a simple HTTP client struct:
 ```go
 type client struct {
     baseURL    string
-    token      string
+    apiKey     string
     httpClient *http.Client
 }
 
 func (c *client) do(method, path string, body interface{}) ([]byte, error) {
     // Build URL from baseURL + path
     // Marshal body to JSON if non-nil
-    // Set Authorization: Bearer <token>
+    // Set Authorization: ApiKey-v1 <apiKey>
     // Set Content-Type: application/json
     // Return response body bytes
 }
@@ -175,7 +175,7 @@ Users add this to their MCP config (`.mcp.json` or `settings.json`):
   "mcpServers": {
     "combine": {
       "command": "combine",
-      "args": ["mcp-bridge", "--server-url", "http://localhost:23235", "--token", "<key>"]
+      "args": ["mcp-bridge", "--server-url", "http://localhost:23235", "--api-key", "<key>"]
     }
   }
 }

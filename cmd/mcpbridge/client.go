@@ -12,14 +12,14 @@ import (
 
 type apiClient struct {
 	baseURL    string
-	token      string
+	apiKey     string
 	httpClient *http.Client
 }
 
-func newAPIClient(baseURL, token string) *apiClient {
+func newAPIClient(baseURL, apiKey string) *apiClient {
 	return &apiClient{
 		baseURL: baseURL,
-		token:   token,
+		apiKey:  apiKey,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -40,7 +40,7 @@ func (c *apiClient) do(ctx context.Context, method, path string, body interface{
 	if err != nil {
 		return nil, 0, fmt.Errorf("create request: %w", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Authorization", "ApiKey-v1 "+c.apiKey)
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}

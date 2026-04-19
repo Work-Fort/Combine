@@ -86,7 +86,7 @@ data.
 Standalone `combine mcp-bridge` command that runs an MCP server on stdio,
 exposing Combine's REST API as MCP tools. 25 tools covering repos, issues,
 pull requests, webhooks, and SSH keys. Uses `mcp-go` library. Configured
-with `--server-url` and `--token` flags. E2E tested.
+with `--server-url` and `--api-key` flags. E2E tested.
 
 ## 10. Docker Image + Release Flow ✅
 

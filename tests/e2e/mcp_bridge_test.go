@@ -37,7 +37,7 @@ type mcpBridge struct {
 func startMCPBridge(t *testing.T, serverURL, token string) *mcpBridge {
 	t.Helper()
 
-	cmd := exec.Command(combineBin, "mcp-bridge", "--server-url", serverURL, "--token", token)
+	cmd := exec.Command(combineBin, "mcp-bridge", "--server-url", serverURL, "--api-key", token)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		t.Fatalf("stdin pipe: %v", err)

@@ -18,21 +18,21 @@ func NewCmd() *cobra.Command {
 	}
 
 	cmd.Flags().String("server-url", "http://localhost:23235", "Combine HTTP base URL")
-	cmd.Flags().String("token", "", "Passport agent API key")
+	cmd.Flags().String("api-key", "", "Passport API key (sent as ApiKey-v1)")
 	_ = viper.BindPFlag("server-url", cmd.Flags().Lookup("server-url"))
-	_ = viper.BindPFlag("token", cmd.Flags().Lookup("token"))
+	_ = viper.BindPFlag("api-key", cmd.Flags().Lookup("api-key"))
 
 	return cmd
 }
 
 func runBridge(cmd *cobra.Command, args []string) error {
 	serverURL := viper.GetString("server-url")
-	token := viper.GetString("token")
-	if token == "" {
-		return fmt.Errorf("--token is required")
+	apiKey := viper.GetString("api-key")
+	if apiKey == "" {
+		return fmt.Errorf("--api-key is required")
 	}
 
-	client := newAPIClient(serverURL, token)
+	client := newAPIClient(serverURL, apiKey)
 
 	s := server.NewMCPServer(
 		"combine",
