@@ -36,7 +36,9 @@ func newPassportStub(t *testing.T) *passportStub {
 	})
 	mux.HandleFunc("/v1/verify-api-key", func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt64(&s.verifyCount, 1)
-		var body struct{ Key string `json:"key"` }
+		var body struct {
+			Key string `json:"key"`
+		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		if body.Key != s.validKey {
 			http.Error(w, "invalid api key", http.StatusUnauthorized)
@@ -69,27 +71,35 @@ type inMemoryStore struct{}
 func (inMemoryStore) UpsertIdentity(_ context.Context, id, username, displayName, typ string) (*domain.Identity, error) {
 	return &domain.Identity{ID: id, Username: username, DisplayName: displayName, Type: typ}, nil
 }
+
 func (inMemoryStore) GetIdentityByID(_ context.Context, _ string) (*domain.Identity, error) {
 	panic("not implemented in test stub")
 }
+
 func (inMemoryStore) GetIdentityByUsername(_ context.Context, _ string) (*domain.Identity, error) {
 	panic("not implemented in test stub")
 }
+
 func (inMemoryStore) GetIdentityByPublicKey(_ context.Context, _ ssh.PublicKey) (*domain.Identity, error) {
 	panic("not implemented in test stub")
 }
+
 func (inMemoryStore) ListIdentities(_ context.Context) ([]*domain.Identity, error) {
 	panic("not implemented in test stub")
 }
+
 func (inMemoryStore) SetIdentityAdmin(_ context.Context, _ string, _ bool) error {
 	panic("not implemented in test stub")
 }
+
 func (inMemoryStore) AddIdentityPublicKey(_ context.Context, _ string, _ ssh.PublicKey) error {
 	panic("not implemented in test stub")
 }
+
 func (inMemoryStore) RemoveIdentityPublicKey(_ context.Context, _ string, _ int64) error {
 	panic("not implemented in test stub")
 }
+
 func (inMemoryStore) ListIdentityPublicKeys(_ context.Context, _ string) ([]*domain.PublicKey, error) {
 	panic("not implemented in test stub")
 }
@@ -106,7 +116,7 @@ func TestPassportAuth_BearerForAPIKeyReturns401(t *testing.T) {
 		t.Fatal("handler must not be called when API key is sent under Bearer")
 	}))
 
-	req := httptest.NewRequest("GET", "/v1/x", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/v1/x", nil)
 	req.Header.Set("Authorization", "Bearer "+stub.validKey) // wrong scheme
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
@@ -133,7 +143,7 @@ func TestPassportAuth_ApiKeyV1Routes(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest("GET", "/v1/x", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/v1/x", nil)
 	req.Header.Set("Authorization", "ApiKey-v1 "+stub.validKey)
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
