@@ -30,6 +30,39 @@ environment variables prefixed with `COMBINE_`.
 | `COMBINE_DB_DRIVER` | Database driver (`sqlite` or `postgres`) | `sqlite` |
 | `COMBINE_INITIAL_ADMIN_KEYS` | Admin SSH public keys | |
 
+## Development
+
+Combine uses [mise](https://mise.jdx.dev/) to manage the Go and
+golangci-lint toolchain. With mise installed:
+
+```bash
+mise install              # install pinned toolchain
+mise run lint             # gofmt + go vet + golangci-lint
+mise run test             # unit tests with -race and coverage
+mise run build:dev        # build ./build/combine
+mise run e2e              # build then run e2e tests against SQLite
+mise run ci               # lint + test + e2e (full default-backend run)
+```
+
+### E2E against Postgres
+
+The e2e harness selects its backend via env vars. Default (unset)
+is SQLite; setting both runs against Postgres:
+
+```bash
+COMBINE_DB_DRIVER=postgres \
+  COMBINE_DB_DATA_SOURCE="postgres://postgres@127.0.0.1/combine_e2e?sslmode=disable" \
+  mise run e2e
+```
+
+The harness drops and recreates the `public` schema before each
+test so runs are isolated.
+
+### git-lfs
+
+`TestLFSPushPull` requires `git-lfs` on the developer's PATH.
+On Arch: `pacman -S git-lfs`.
+
 ## License
 
 [MIT](LICENSE) (inherited from Soft Serve)
