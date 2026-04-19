@@ -10,13 +10,13 @@
 #                leaking the concrete type into function signatures even in
 #                test files.
 #
-#   forbidigo  — prevents *sqlite.Store and *postgres.Store from appearing in
+#   forbidigo  — prevents sqlite.Store and postgres.Store from appearing in
 #                any Go source outside internal/infra/. Within infra, the
-#                qualified cross-package form is never used — infra methods use
-#                the unqualified *Store receiver, so the pattern has zero false
-#                positives inside the adapters.
+#                unqualified Store type is used as receiver so the
+#                cross-package qualified form (sqlite.Store) never appears
+#                inside the adapters — zero false positives.
 #                This catches the "test-fixture leak": a helper that internally
-#                constructs *sqlite.Store but MUST return a port interface.
+#                constructs a *sqlite.Store but MUST return a port interface.
 #
 # NOTE: this config uses the golangci-lint v2 format (linters.settings nested
 # under linters, not top-level linters-settings). Run `golangci-lint config
@@ -86,26 +86,27 @@ linters:
                 on the Postgres adapter. Accept domain.Store as a parameter instead.
 
     forbidigo:
-      # Forbid the qualified concrete types *sqlite.Store and *postgres.Store
-      # in function signatures. This is the guard that test helpers must return
-      # a port interface, not the adapter. The infra packages themselves use
-      # unqualified *Store receivers, so these patterns have no false positives
-      # inside internal/infra/sqlite/ or internal/infra/postgres/.
+      # Forbid the qualified concrete types sqlite.Store and postgres.Store in
+      # function signatures. The leading * is a separate AST node and must NOT
+      # be included in the pattern — forbidigo matches identifier text, not full
+      # type expressions. The infra packages themselves use the unqualified Store
+      # receiver, so sqlite.Store / postgres.Store never appear inside the
+      # adapters — zero false positives.
       #
       # analyze-types is false (default): pattern matches against source text,
       # not type information. Sufficient for catching type-leaked signatures.
       analyze-types: false
       forbid:
-        - pattern: '\*sqlite\.Store'
+        - pattern: 'sqlite\.Store'
           msg: >
             Use a port interface (domain.Store) as the function parameter/return
-            type — not the concrete *sqlite.Store. See
+            type — not the concrete sqlite.Store. See
             skills/lead/go-service-architecture/references/
             architecture-reference.md §"Test Fixture Return Types".
-        - pattern: '\*postgres\.Store'
+        - pattern: 'postgres\.Store'
           msg: >
             Use a port interface (domain.Store) as the function parameter/return
-            type — not the concrete *postgres.Store. See
+            type — not the concrete postgres.Store. See
             skills/lead/go-service-architecture/references/
             architecture-reference.md §"Test Fixture Return Types".
 
